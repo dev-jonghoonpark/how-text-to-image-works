@@ -149,6 +149,9 @@ sup.fn a{text-decoration:none;font-weight:700;padding:0 2px}
 .footnotes .tw{font-size:13.5px}
 .footnotes .back{text-decoration:none;margin-left:4px}
 .pill{display:inline-block;font-size:11.5px;font-weight:700;padding:1px 8px;border-radius:999px;background:var(--wash);color:var(--s1);margin-left:6px;vertical-align:2px}
+/* 그리드 칸이 캔버스 고유 폭 때문에 넓어지지 않게 */
+.split>*{min-width:0}
+canvas{max-width:100%}
 </style>
 </head>
 <body>
@@ -300,6 +303,24 @@ sup.fn a{text-decoration:none;font-weight:700;padding:0 2px}
 
 <p>얼룩을 <strong>초반</strong>(t가 클 때)에 넣으면 거의 흔적 없이 사라집니다. 다음 단계에서 모델이 그림 <em>전체</em>를 다시 보고 “이건 노이즈다”라고 판단하고, 남은 노이즈와 함께 덜어 내기 때문입니다. 모델이 설명하지 못한 성분은 한 걸음마다 \(\sqrt{1-\bar\alpha_{t'}}/\sqrt{1-\bar\alpha_t}\)배로 줄어듭니다. <strong>후반</strong>에 넣으면 남습니다. 그때는 노이즈가 적어서 얼룩이 노이즈가 아니라 또렷한 내용으로 보이고, 모델은 그것을 그림의 일부로 받아들여 다듬습니다. (오른쪽 \(\hat x_0\)에 얼룩이 나타나는지 보세요.) 데모 1과 비교하면 차이가 분명합니다.</p>
 
+<h3>같은 그림을 두 방식으로: 다듬기는 이렇게 그린다</h3>
+<p>데모 1과 3을 한 화면에 놓았습니다. 진행률 하나로 두 방식을 같이 움직입니다. 쌓기는 256칸을, 다듬기는 20단계를 같은 비율만큼 진행합니다. 아래 필름 스트립에는 진행률 0%부터 100%까지의 장면이 나란히 있습니다. 다듬기는 두 줄로 보여 줍니다. 실제로 들고 있는 상태 \(x_t\)와, 그 순간 모델이 “완성되면 이렇겠다”고 보는 그림 \(\hat x_0\)입니다.</p>
+<div class="demo">
+  <h4>데모 4 · 같은 그림을 쌓기와 다듬기로 그리기</h4>
+  <p class="cap">왼쪽: 쌓기 — 정한 칸만 있고 나머지는 비어 있습니다. 오른쪽: 다듬기 — 큰 그림은 모델의 추정 \(\hat x_0\), 오른쪽 아래 작은 그림은 실제 상태 \(x_t\)입니다.</p>
+  <canvas id="d7" height="300"></canvas>
+  <div class="ctrls">
+    <div class="ctrl"><label>진행률 <b id="d7pv"></b></label><input type="range" id="d7p" min="0" max="100" step="1" value="30"></div>
+  </div>
+  <div class="btns">
+    <button id="d7go" type="button">재생</button>
+    <button id="d7reset" type="button">새 시드</button>
+  </div>
+  <div class="readout" id="d7out"></div>
+  <canvas id="d7f" height="330" style="margin-top:14px"></canvas>
+</div>
+<p>진행률 30%에서 쌓기는 <strong>위쪽 30%가 완성되어 있고 아래는 아무것도 없습니다</strong>. 다듬기는 <strong>화면 전체가 있지만 흐립니다</strong>. 하늘은 위, 풀밭은 아래, 산과 집이 대략 어디 있는지는 정해졌지만 지붕 모서리나 창문은 아직 없습니다. 쌓기의 단위는 “어디”이고 다듬기의 단위는 “얼마나 선명하게”라는 1절의 이야기를 그대로 눈으로 본 것입니다. 필름 스트립의 가운데 줄도 눈여겨보세요. 실제 상태 \(x_t\)는 거의 끝까지 노이즈처럼 보입니다. 그림은 노이즈 밑에서 이미 자라고 있고, 모델은 매 단계 그 아래를 들여다보며 \(\hat x_0\)을 추정합니다. Stable Diffusion UI의 “미리 보기”가 흐린 그림을 보여 주는 것도 이 \(\hat x_0\)(을 VAE로 푼 것)입니다.</p>
+
 <div class="tw"><table>
 <tr><th></th><th>쌓기 (데모 1)</th><th>다듬기 (데모 3)</th></tr>
 <tr><td>결정 하나의 범위</td><td>칸 하나</td><td>그림 전체</td></tr>
@@ -316,7 +337,7 @@ sup.fn a{text-decoration:none;font-weight:700;padding:0 2px}
 <p>분해 방향이 다르니 텍스트를 넣는 자리도 달라집니다. 쌓기는 “지금까지의 시퀀스”라는 하나의 맥락만 있으므로, 텍스트를 <strong>그 시퀀스의 앞부분</strong>으로 넣으면 끝입니다. 그림 토큰은 인과 마스크를 따라 텍스트 전체와 앞선 그림 토큰을 봅니다. 다듬기는 매 단계 그림 전체를 한꺼번에 처리하므로 시퀀스의 “앞”이 없습니다. 그래서 U-Net 곳곳에 <strong>교차 어텐션</strong> 층을 넣어, 그림의 각 위치가 쿼리(Q)가 되고 CLIP 텍스트 인코더 출력이 키·값(K, V)이 되게 합니다.</p>
 
 <div class="demo">
-  <h4>데모 4 · 누가 누구를 보나 (어텐션 마스크)</h4>
+  <h4>데모 5 · 누가 누구를 보나 (어텐션 마스크)</h4>
   <p class="cap">텍스트 토큰 4개, 그림 토큰 9개(3×3)로 줄인 예. 행 = 보는 쪽(쿼리), 열 = 보이는 쪽(키). 칠해진 칸만 볼 수 있습니다. 행을 눌러 그 토큰이 무엇을 보는지 그림 위에서 확인하세요.</p>
   <div class="btns" id="d4mode"></div>
   <canvas id="d4" height="330"></canvas>
@@ -333,7 +354,7 @@ sup.fn a{text-decoration:none;font-weight:700;padding:0 2px}
 <div class="eq">\[\tilde\varepsilon=\varepsilon_\theta(x_t,\varnothing)+w\,\big(\varepsilon_\theta(x_t,c)-\varepsilon_\theta(x_t,\varnothing)\big)\]<span class="note">분류기 없는 가이던스(classifier-free guidance, Ho &amp; Salimans). \(w=1\)이면 그냥 조건부, \(w&gt;1\)이면 “문장이 있을 때 달라지는 방향”을 과장합니다. Stable Diffusion의 흔한 기본값은 \(w=7.5\).</span></div>
 
 <div class="demo">
-  <h4>데모 5 · 가이던스 세기 w (2차원 장난감)</h4>
+  <h4>데모 6 · 가이던스 세기 w (2차원 장난감)</h4>
   <p class="cap">데이터는 세 무리(A·B·C)의 가우시안 혼합이고, 조건은 “A”. 점 400개를 노이즈에서 출발시켜 담금질 랑주뱅 동역학으로 다듬습니다. 각 단계의 점수(score)는 위 식처럼 무조건 점수와 조건부 점수를 w로 섞은 것이고, 해석적으로 정확히 계산합니다.</p>
   <canvas id="d5" height="320"></canvas>
   <div class="ctrls">
@@ -352,7 +373,7 @@ sup.fn a{text-decoration:none;font-weight:700;padding:0 2px}
 <p>생성 속도를 정하는 것은 <strong>앞의 결과를 기다려야 하는 순차 호출의 수</strong>입니다. 쌓기는 칸 \(i\)를 정해야 칸 \(i{+}1\)을 정할 수 있으므로 토큰 수만큼 순차로 불러야 합니다(KV 캐시로 호출당 비용은 줄일 수 있지만 횟수는 못 줄입니다). 다듬기는 단계 수만큼 부르지만, 한 번에 그림 전체를 처리합니다.</p>
 
 <div class="demo">
-  <h4>데모 6 · 순차 호출 수 계산기</h4>
+  <h4>데모 7 · 순차 호출 수 계산기</h4>
   <p class="cap">막대는 로그 눈금. 쌓기 = 격자 변²(후보를 여러 장 뽑아도 동시에 돌릴 수 있어 순차 횟수는 그대로). 다듬기 = 단계 수(가이던스의 조건·무조건 두 번은 보통 한 배치로 묶음).</p>
   <div class="ctrls">
     <div class="ctrl"><label>쌓기: 토큰 격자 <b id="d6gv"></b></label><input type="range" id="d6g" min="0" max="3" step="1" value="1"></div>
@@ -411,14 +432,15 @@ sup.fn a{text-decoration:none;font-weight:700;padding:0 2px}
   Tian 외 (2024), <em>Visual Autoregressive Modeling: Scalable Image Generation via Next-Scale Prediction</em> (VAR) — <a href="https://arxiv.org/abs/2404.02905">arXiv:2404.02905</a><br>
   Li 외 (2024), <em>Autoregressive Image Generation without Vector Quantization</em> (MAR) — <a href="https://arxiv.org/abs/2406.11838">arXiv:2406.11838</a><br>
   Dieleman (2024), <em>Diffusion is spectral autoregression</em> — <a href="https://sander.ai/2024/09/02/spectral-autoregression.html">블로그</a> (4절 스펙트럼 관점)</p>
-  <p>데모의 신경망은 모두 동작 방식을 보여 주기 위한 가짜 모델입니다(데모 5의 점수 함수만 해석적으로 정확). <a href="https://github.com/dev-jonghoonpark/how-ai-works">how-ai-works</a> 시리즈 · <a href="https://github.com/dev-jonghoonpark/how-text-to-image-works">소스</a></p>
+  <p>데모의 신경망은 모두 동작 방식을 보여 주기 위한 가짜 모델입니다(데모 6의 점수 함수만 해석적으로 정확). <a href="https://github.com/dev-jonghoonpark/how-ai-works">how-ai-works</a> 시리즈 · <a href="https://github.com/dev-jonghoonpark/how-text-to-image-works">소스</a></p>
 </footer>
 </div>
 <script>
 var $=function(s){return document.querySelector(s);};
 var cssCache={};
 function css(n){if(!(n in cssCache))cssCache[n]=getComputedStyle(document.documentElement).getPropertyValue(n).trim();return cssCache[n];}
-function setup(c){var dpr=window.devicePixelRatio||1,w=c.clientWidth,h=+c.getAttribute('height');
+function setup(c){/* 논리 높이는 data-h에 따로 둔다: canvas.height는 dpr배로 바뀌므로 다시 읽으면 매번 커진다 */
+  if(!c.dataset.h)c.dataset.h=c.getAttribute('height');var dpr=window.devicePixelRatio||1,w=c.clientWidth,h=+c.dataset.h;
   c.style.height=h+'px';c.width=Math.round(w*dpr);c.height=Math.round(h*dpr);var g=c.getContext('2d');g.setTransform(dpr,0,0,dpr,0,0);
   g.font='12px system-ui,-apple-system,"Apple SD Gothic Neo",sans-serif';return {g:g,w:w,h:h};}
 function rng(seed){var s=seed>>>0||1;return function(){s^=s<<13;s>>>=0;s^=s>>>17;s^=s<<5;s>>>=0;return s/4294967296;};}
@@ -494,7 +516,7 @@ function stepD1(){if(D1.pos>=G1*G1)return;var i=D1.pos,x=i%G1,y=(i/G1)|0,p=+$('#
   else if(bad.length&&r()<q){t=D1.tok[bad[Math.floor(r()*bad.length)]];k=t===TOK[i]?0:2;}
   else if(r()<p){t=Math.floor(r()*PAL.length);k=t===TOK[i]?0:1;}
   D1.tok[i]=t;D1.kind[i]=k;D1.pos++;}
-function drawD1(){var c=$('#d1');c.setAttribute('height',String(Math.min(300,Math.round((c.clientWidth-30)/2)+34)));var S=setup(c),g=S.g,W=S.w,H=S.h;
+function drawD1(){var c=$('#d1');c.dataset.h=String(Math.min(300,Math.round((c.clientWidth-30)/2)+34));var S=setup(c),g=S.g,W=S.w,H=S.h;
   var side=Math.min(H-30,(W-30)/2),cs=side/G1,X1=10,X2=W-side-10,Y=10;
   for(var i=0;i<G1*G1;i++){var x=i%G1,y=(i/G1)|0,px=X1+x*cs,py=Y+y*cs;
     if(i<D1.pos){var p=PAL[D1.tok[i]];g.fillStyle='rgb('+p.map(function(v){return Math.round(v*255);})+')';g.fillRect(px,py,cs+0.5,cs+0.5);}
@@ -587,7 +609,54 @@ $('#d3bad').addEventListener('click',blobD3);
 $('#d3reset').addEventListener('click',function(){initD3(D3.seed+1);drawD3();});
 $('#d3k').addEventListener('input',function(){initD3();drawD3();});
 
-/* ══════ 데모 4: 어텐션 마스크 ══════ */
+
+/* ══════ 데모 4(d7): 나란히 그리기 ══════ */
+var D7={K:20,seed:3};
+function initD7(){var r=rng(D7.seed),tok=[],kind=[];
+  for(var i=0;i<G1*G1;i++){var x=i%G1,y=(i/G1)|0,nb=[];if(x>0)nb.push(i-1);if(y>0)nb.push(i-G1);
+    var bad=nb.filter(function(j){return kind[j]>0;}),t=TOK[i],k=0;
+    if(bad.length&&r()<0.3){t=tok[bad[Math.floor(r()*bad.length)]];k=t===TOK[i]?0:2;}else if(r()<0.006){t=Math.floor(r()*PAL.length);k=t===TOK[i]?0:1;}
+    tok.push(t);kind.push(k);}
+  D7.tok=tok;
+  var r2=rng(D7.seed*7+23),x=[0,1,2].map(function(){var a=new Float64Array(N*N);for(var i=0;i<N*N;i++)a[i]=gauss(r2);return a;});
+  var ts=[];for(var k=0;k<D7.K;k++)ts.push(Math.round((T-1)*(1-k/D7.K)));
+  function ab(k){return k<D7.K?ABAR[ts[k]]:1;}
+  D7.x0=[];D7.xt=[];D7.t=ts.concat([0]);
+  for(var k2=0;k2<D7.K;k2++){D7.xt.push(x.map(function(a){return Float64Array.from(a);}));D7.x0.push(ddim(x,ab(k2),ab(k2+1),TF));}
+  D7.xt.push(x.map(function(a){return Float64Array.from(a);}));D7.x0.push(D7.xt[D7.K]);}
+function drawTok(g,tok,n,X,Y,S){var cs=S/G1;
+  for(var i=0;i<G1*G1;i++){var px=X+(i%G1)*cs,py=Y+((i/G1)|0)*cs;
+    if(i<n){g.fillStyle='rgb('+PAL[tok[i]].map(function(v){return Math.round(v*255);})+')';g.fillRect(px,py,cs+0.5,cs+0.5);}
+    else{g.fillStyle=css('--page');g.fillRect(px,py,cs+0.5,cs+0.5);}}
+  if(n<G1*G1){g.strokeStyle=css('--grid');g.lineWidth=1;g.save();g.beginPath();g.rect(X,Y+Math.floor(n/G1)*cs,S,S-Math.floor(n/G1)*cs);g.clip();
+    for(var d=-S;d<S;d+=8){g.beginPath();g.moveTo(X+d,Y+S);g.lineTo(X+d+S,Y);g.stroke();}g.restore();}
+  g.strokeStyle=css('--border');g.strokeRect(X,Y,S,S);}
+function d7at(p){return {n:Math.round(p*G1*G1),k:Math.round(p*D7.K)};}
+function drawD7(){var c=$('#d7'),cw=c.clientWidth,side=Math.min(280,Math.floor((cw-30)/2));c.dataset.h=String(side+40);
+  var S=setup(c),g=S.g,W=S.w,p=+$('#d7p').value/100,a=d7at(p),X1=Math.round(W/2-side-10),X2=Math.round(W/2+10),Y=6;
+  drawTok(g,D7.tok,a.n,X1,Y,side);
+  drawImg(g,D7.x0[a.k],X2,Y,side);var ins=Math.round(side*0.32);
+  drawImg(g,D7.xt[a.k],X2+side-ins-4,Y+side-ins-4,ins);g.strokeStyle='#fff';g.lineWidth=2;g.strokeRect(X2+side-ins-4,Y+side-ins-4,ins,ins);
+  g.fillStyle='#fff';g.font='11px system-ui';g.fillText('x_t',X2+side-ins,Y+side-ins+8);g.font='12px system-ui,-apple-system,"Apple SD Gothic Neo",sans-serif';
+  g.strokeStyle=css('--border');g.lineWidth=1;g.strokeRect(X2,Y,side,side);
+  g.fillStyle=css('--text-secondary');g.textAlign='center';
+  g.fillText('쌓기 · 토큰 '+a.n+' / 256',X1+side/2,Y+side+20);g.fillText('다듬기 · 단계 '+a.k+' / '+D7.K,X2+side/2,Y+side+20);g.textAlign='left';
+  $('#d7pv').textContent=Math.round(p*100)+'%';
+  $('#d7out').innerHTML='<span>쌓기: 있는 부분<b>위쪽 '+Math.round(a.n/256*100)+'% (선명)</b></span><span>다듬기: 있는 부분<b>전체 (단계 '+a.k+'/'+D7.K+')</b></span><span>신경망 호출<b>'+a.n+' vs '+a.k+'</b></span>';}
+function drawD7f(){var c=$('#d7f'),cw=c.clientWidth,L=cw<480?44:70,cols=6,th=Math.floor(Math.min(96,(cw-L)/cols-6));
+  c.dataset.h=String(3*(th+8)+30);var S=setup(c),g=S.g;
+  var rows=[['쌓기',0],['다듬기\nx_t',1],['다듬기\nx̂₀',2]];
+  for(var j=0;j<cols;j++){var p=j/(cols-1),a=d7at(p),X=L+j*(th+6);
+    g.fillStyle=css('--muted');g.textAlign='center';g.fillText(Math.round(p*100)+'%',X+th/2,12);g.textAlign='left';
+    rows.forEach(function(rw,ri){var Y=20+ri*(th+8);
+      if(ri===0)drawTok(g,D7.tok,a.n,X,Y,th);else drawImg(g,ri===1?D7.xt[a.k]:D7.x0[a.k],X,Y,th);});}
+  rows.forEach(function(rw,ri){var Y=20+ri*(th+8)+th/2;g.fillStyle=css('--text-secondary');rw[0].split('\n').forEach(function(s,li,arr){g.fillText(s,2,Y+(li-(arr.length-1)/2)*14+4);});});}
+function loopD7(){if(!D7.run)return;var el=$('#d7p'),v=+el.value+1;if(v>100){D7.run=false;$('#d7go').textContent='재생';return;}el.value=v;drawD7();setTimeout(loopD7,40);}
+$('#d7go').addEventListener('click',function(){if(+$('#d7p').value>=100)$('#d7p').value=0;D7.run=!D7.run;this.textContent=D7.run?'일시정지':'재생';if(D7.run)loopD7();});
+$('#d7reset').addEventListener('click',function(){D7.seed++;initD7();drawD7();drawD7f();});
+$('#d7p').addEventListener('input',drawD7);
+
+/* ══════ 데모 5: 어텐션 마스크 ══════ */
 var D4={mode:'ar',row:8};
 var TXT=['빨간','지붕','집','해'];
 function d4can(q,k){/* 인덱스: 0..3 텍스트, 4..12 그림 */
@@ -595,7 +664,7 @@ function d4can(q,k){/* 인덱스: 0..3 텍스트, 4..12 그림 */
   /* 다듬기: 그림 행만. 그림↔그림 전부, 그림→텍스트 전부(교차) */
   return q>=4;
 }
-function drawD4(){var c=$('#d4'),narrow=c.clientWidth<560;c.setAttribute('height',narrow?'500':'330');var S=setup(c),g=S.g,W=S.w,H=S.h,n=13,cs=narrow?Math.min(20,(W-70)/n):Math.min(20,(Math.min(W*0.58,H-60))/n),X=56,Y=36;
+function drawD4(){var c=$('#d4'),narrow=c.clientWidth<560;c.dataset.h=narrow?'500':'330';var S=setup(c),g=S.g,W=S.w,H=S.h,n=13,cs=narrow?Math.min(20,(W-70)/n):Math.min(20,(Math.min(W*0.58,H-60))/n),X=56,Y=36;
   g.fillStyle=css('--text-secondary');g.fillText(D4.mode==='ar'?'하나의 시퀀스 [텍스트 | 그림], 인과 마스크':'셀프 어텐션(그림↔그림) + 교차 어텐션(그림→텍스트)',X-46,16);
   for(var q=0;q<n;q++){for(var k=0;k<n;k++){var on=d4can(q,k),cross=D4.mode==='sd'&&k<4&&q>=4;
     g.fillStyle=on?(cross?css('--s2'):k<4?css('--s3'):css('--s1')):css('--page');
@@ -690,13 +759,13 @@ var QZ=[
 })();
 
 /* ══════ 테마·초기화 ══════ */
-function drawAll(){drawD1();drawD2();drawD3();drawD4();drawD5();drawD6();}
+function drawAll(){drawD1();drawD2();drawD3();drawD7();drawD7f();drawD4();drawD5();drawD6();}
 var tbtn=$('#themeBtn');
 if(window.matchMedia&&window.matchMedia('(prefers-color-scheme: dark)').matches)document.documentElement.setAttribute('data-theme','dark');
 function syncBtn(){tbtn.textContent=document.documentElement.getAttribute('data-theme')==='dark'?'◑ 라이트':'◐ 다크';}
 tbtn.addEventListener('click',function(){var d=document.documentElement.getAttribute('data-theme')==='dark';
   document.documentElement.setAttribute('data-theme',d?'light':'dark');cssCache={};syncBtn();drawAll();});
-initD1();initD3(11);syncBtn();drawAll();runD5();
+initD1();initD3(11);initD7();syncBtn();drawAll();runD5();
 var rz,lastW=document.documentElement.clientWidth;
 window.addEventListener('resize',function(){clearTimeout(rz);rz=setTimeout(function(){
   var w=document.documentElement.clientWidth;if(w===lastW)return;lastW=w;drawAll();},120);});
