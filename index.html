@@ -1,0 +1,708 @@
+<!DOCTYPE html>
+<html lang="ko" data-theme="light">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>쌓기와 다듬기 — DALL·E vs Stable Diffusion</title>
+<meta name="description" content="DALL·E(자기회귀)와 Stable Diffusion(확산)의 구조를 '쌓기 vs 다듬기' 한 가지 차이에 집중해 브라우저에서 직접 비교하는 인터랙티브 교육 자료. 분해 방향, 이산 토큰 vs 연속 잠재, 실수 전파, 노이즈와 주파수, DDIM, 교차 어텐션, 분류기 없는 가이던스, 순차 호출 수.">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/katex@0.16.11/dist/katex.min.css">
+<script defer src="https://cdn.jsdelivr.net/npm/katex@0.16.11/dist/katex.min.js"></script>
+<script defer src="https://cdn.jsdelivr.net/npm/katex@0.16.11/dist/contrib/auto-render.min.js"></script>
+<style>
+:root{
+  color-scheme: light;
+  --surface-1:#fcfcfb;
+  --page:#f9f9f7;
+  --text-primary:#0b0b0b;
+  --text-secondary:#52514e;
+  --muted:#898781;
+  --grid:#e1e0d9;
+  --axis:#c3c2b7;
+  --border:rgba(11,11,11,0.10);
+  --s1:#2a78d6;
+  --s2:#eb6834;
+  --s3:#1baf7a;
+  --s4:#8b5cf6;
+  --s8:#e34948;
+  --warn:#fab219;
+  --good:#0ca30c;
+  --wash:rgba(42,120,214,0.08);
+}
+:root[data-theme="dark"]{
+  color-scheme: dark;
+  --surface-1:#1a1a19;
+  --page:#0d0d0d;
+  --text-primary:#ffffff;
+  --text-secondary:#c3c2b7;
+  --muted:#898781;
+  --grid:#2c2c2a;
+  --axis:#383835;
+  --border:rgba(255,255,255,0.10);
+  --s1:#3987e5;
+  --s2:#d95926;
+  --s3:#199e70;
+  --s4:#a78bfa;
+  --s8:#e66767;
+  --warn:#fab219;
+  --good:#0ca30c;
+  --wash:rgba(57,135,229,0.14);
+}
+*{box-sizing:border-box}
+html{-webkit-text-size-adjust:100%; scroll-behavior:smooth}
+body{
+  margin:0; background:var(--page); color:var(--text-primary);
+  font-family:system-ui,-apple-system,"Segoe UI","Apple SD Gothic Neo","Noto Sans KR",sans-serif;
+  font-size:16px; line-height:1.75; letter-spacing:-0.01em;
+}
+.wrap{max-width:880px;margin:0 auto;padding:0 16px 120px}
+header.hero{padding:56px 0 28px;border-bottom:1px solid var(--border);margin-bottom:8px}
+h1{font-size:clamp(28px,5.2vw,42px);line-height:1.25;margin:0 0 12px;letter-spacing:-0.03em}
+.sub{color:var(--text-secondary);font-size:17px;margin:0}
+.kicker{font-size:12px;letter-spacing:0.12em;text-transform:uppercase;color:var(--muted);font-weight:600;margin:0 0 10px}
+h2{font-size:clamp(21px,3.4vw,27px);margin:56px 0 6px;letter-spacing:-0.02em;line-height:1.3}
+h3{font-size:18px;margin:34px 0 6px;letter-spacing:-0.015em}
+p{margin:12px 0}
+ul,ol{margin:12px 0;padding-left:22px}
+li{margin:6px 0}
+strong{font-weight:650}
+code{font-family:ui-monospace,SFMono-Regular,Menlo,monospace;font-size:0.9em;background:var(--wash);padding:1px 5px;border-radius:4px}
+a{color:var(--s1)}
+.demo{background:var(--surface-1);border:1px solid var(--border);border-radius:14px;padding:18px;margin:24px 0}
+.demo h4{margin:0 0 2px;font-size:15px;color:var(--text-primary);font-weight:650}
+.demo .cap{color:var(--muted);font-size:13px;margin:0 0 14px;line-height:1.6}
+canvas{display:block;width:100%;border-radius:8px;background:var(--surface-1);touch-action:manipulation}
+.ctrls{display:flex;flex-wrap:wrap;gap:14px 22px;margin:14px 0 4px;align-items:flex-end}
+.ctrl{flex:1 1 210px;min-width:170px}
+.ctrl label{display:flex;justify-content:space-between;align-items:baseline;font-size:13px;color:var(--text-secondary);margin-bottom:4px;gap:10px}
+.ctrl label b{font-variant-numeric:tabular-nums;color:var(--text-primary);font-weight:650;font-size:13px}
+input[type=range]{width:100%;accent-color:var(--s1);height:22px;margin:0}
+.btns{display:flex;flex-wrap:wrap;gap:8px;margin-top:14px}
+button{font:inherit;font-size:13px;font-weight:600;padding:7px 14px;border-radius:8px;cursor:pointer;
+  border:1px solid var(--border);background:var(--surface-1);color:var(--text-primary);transition:background .12s}
+button:hover{background:var(--wash)}
+button[aria-pressed=true]{background:var(--wash);border-color:var(--s1)}
+.legend{display:flex;flex-wrap:wrap;gap:6px 16px;font-size:12.5px;color:var(--text-secondary);margin:10px 0 0}
+.legend span{display:inline-flex;align-items:center;gap:6px}
+.legend i{width:14px;height:3px;border-radius:2px;display:inline-block}
+.readout{display:flex;flex-wrap:wrap;gap:8px 26px;margin-top:12px;font-size:13px;color:var(--text-secondary)}
+.readout b{display:block;font-size:19px;color:var(--text-primary);font-weight:650;line-height:1.3;letter-spacing:-0.02em;font-variant-numeric:tabular-nums}
+.eq{background:var(--surface-1);border:1px solid var(--border);border-left:3px solid var(--s1);
+  border-radius:0 10px 10px 0;padding:14px 18px;margin:18px 0;overflow-x:auto;text-align:center}
+.eq .note{display:block;font-size:12.5px;color:var(--muted);margin:6px 0 0;line-height:1.55;text-align:left}
+.tw{overflow-x:auto;margin:18px 0;border:1px solid var(--border);border-radius:12px;background:var(--surface-1)}
+table{border-collapse:collapse;width:100%;font-size:14px}
+th,td{padding:9px 13px;text-align:left;border-bottom:1px solid var(--border);vertical-align:middle}
+th{font-weight:650;font-size:12.5px;color:var(--text-secondary);background:var(--page)}
+tr:last-child td{border-bottom:none}
+td.num,th.num{font-variant-numeric:tabular-nums;text-align:right}
+td.mono{font-family:ui-monospace,SFMono-Regular,Menlo,monospace;font-size:13px}
+.note{border-left:3px solid var(--axis);padding:2px 0 2px 16px;margin:18px 0;color:var(--text-secondary);font-size:14.5px}
+.key{border:1px solid var(--border);border-left:3px solid var(--s2);background:var(--surface-1);
+  border-radius:0 10px 10px 0;padding:14px 18px;margin:20px 0}
+.key .lbl{font-size:11.5px;font-weight:700;letter-spacing:0.1em;color:var(--s2);display:block;margin-bottom:4px}
+.key p{margin:0}
+nav.toc{background:var(--surface-1);border:1px solid var(--border);border-radius:14px;padding:18px 22px;margin:26px 0}
+nav.toc ol{margin:6px 0 0;padding-left:20px;font-size:14.5px}
+nav.toc a{text-decoration:none;color:var(--text-primary)}
+nav.toc a:hover{color:var(--s1)}
+.q{border:1px solid var(--border);border-radius:10px;background:var(--surface-1);padding:16px 18px;margin:14px 0}
+.q h4{margin:0 0 8px;font-size:15px;color:var(--text-primary)}
+.q .opt{display:flex;gap:9px;align-items:flex-start;padding:7px 10px;border:1px solid var(--border);
+  border-radius:8px;margin:6px 0;cursor:pointer;font-size:14px;transition:border-color .12s}
+.q .opt:hover{border-color:var(--s1)}
+.q .opt input{margin-top:5px;accent-color:var(--s1)}
+.q .opt.correct{border-color:var(--good);background:rgba(12,163,12,0.08)}
+.q .opt.wrong{border-color:var(--s8);background:rgba(227,73,72,0.07)}
+.q .expl{display:none;font-size:13.5px;color:var(--text-secondary);border-left:3px solid var(--good);
+  padding:2px 0 2px 12px;margin-top:10px;line-height:1.65}
+.q .expl.bad{border-left-color:var(--s8)}
+.q .expl.show{display:block}
+.quiz-score{font-size:15px;font-weight:700;margin-top:14px}
+.tog{position:fixed;top:14px;right:14px;z-index:10;border-radius:999px;padding:7px 13px;
+  background:var(--surface-1);border:1px solid var(--border);font-size:12.5px}
+footer{margin-top:70px;padding-top:22px;border-top:1px solid var(--border);color:var(--muted);font-size:13px}
+footer a{color:var(--text-secondary)}
+.refs{font-size:13px;color:var(--text-secondary);line-height:1.7}
+.easy{background:var(--surface-1);border:1px solid var(--border);border-left:3px solid var(--s3);border-radius:0 14px 14px 0;padding:18px 20px;margin:24px 0}
+.easy .lbl{font-size:11.5px;font-weight:700;letter-spacing:0.1em;color:var(--s3);display:block;margin-bottom:2px}
+.easy h3{margin:0 0 8px}
+.easy ol{padding-left:20px}
+.easy .big{font-size:17px;text-align:center;margin:10px 0;font-weight:650}
+.sw{display:grid;grid-template-columns:150px 1fr 64px;gap:8px 10px;align-items:center;font-size:13px;margin-top:12px}
+.sw .bar{position:relative;height:18px;background:var(--page);border:1px solid var(--border);border-radius:4px}
+.sw .bar i{position:absolute;top:0;bottom:0;border-radius:3px}
+.sw .bar:after{content:'';position:absolute;left:50%;top:-3px;bottom:-3px;border-left:1px solid var(--axis)}
+.sw b{font-variant-numeric:tabular-nums;text-align:right}
+.split{display:grid;grid-template-columns:1fr 1fr;gap:18px}
+@media (max-width:640px){.split{grid-template-columns:1fr}}
+.split h5{margin:4px 0 0;font-size:13px;color:var(--text-secondary);font-weight:650}
+.flow{display:flex;flex-wrap:wrap;align-items:center;gap:6px;font-size:13px;margin:16px 0;justify-content:center}
+.flow span{border:1px solid var(--border);background:var(--surface-1);border-radius:8px;padding:5px 10px;font-weight:600}
+.flow em{color:var(--muted);font-style:normal}
+sup.fn{font-size:0.72em;line-height:0;margin-left:1px}
+sup.fn a{text-decoration:none;font-weight:700;padding:0 2px}
+.footnotes{margin-top:64px;padding-top:18px;border-top:1px solid var(--border);font-size:14.5px;color:var(--text-secondary)}
+.footnotes h2{font-size:18px;margin:0 0 10px;color:var(--text-primary)}
+.footnotes ol{padding-left:22px}
+.footnotes li:target{background:var(--wash);border-radius:8px}
+.footnotes p{margin:10px 0}
+.footnotes .tw{font-size:13.5px}
+.footnotes .back{text-decoration:none;margin-left:4px}
+.pill{display:inline-block;font-size:11.5px;font-weight:700;padding:1px 8px;border-radius:999px;background:var(--wash);color:var(--s1);margin-left:6px;vertical-align:2px}
+</style>
+</head>
+<body>
+<button class="tog" id="themeBtn" type="button">◐ 다크</button>
+<div class="wrap">
+<header class="hero">
+  <p class="kicker">텍스트 → 이미지 · DALL·E (Ramesh 외, ICML 2021) vs Stable Diffusion (Rombach 외, CVPR 2022)</p>
+  <h1>쌓기와 다듬기 — DALL·E와 Stable Diffusion은 그림을 어떻게 다르게 그리나</h1>
+  <p class="sub">둘 다 “빨간 지붕 집과 해 질 녘 산”이라는 문장을 받아 그림을 내놓습니다. 그런데 그리는 방식이 정반대입니다. 첫 DALL·E는 그림을 <strong>토큰 1024개짜리 문장</strong>으로 보고 왼쪽 위부터 한 칸씩 <strong>쌓습니다(자기회귀)</strong>. 한 번 놓은 칸은 다시 고치지 않습니다. Stable Diffusion은 <strong>그림 전체를 노이즈로 시작해서</strong> 수십 번에 걸쳐 조금씩 <strong>다듬습니다(확산)</strong>. 매 단계마다 모든 칸을 다시 봅니다. 이 페이지는 다른 부분은 덜고, 이 한 가지 차이에 집중합니다. 이 차이가 어디서 나오고 무엇을 바꾸는지 브라우저에서 직접 돌려 보며 확인합니다.</p>
+</header>
+
+<nav class="toc">
+  <strong>학습 경로</strong>
+  <ol>
+    <li><a href="#s1">같은 목표, 두 가지 분해</a></li>
+    <li><a href="#s2">픽셀 대신 압축된 칸 위에서</a></li>
+    <li><a href="#s3">쌓기: DALL·E는 한 칸씩 놓는다</a></li>
+    <li><a href="#s4">다듬기의 준비: 노이즈는 세밀한 것부터 지운다</a></li>
+    <li><a href="#s5">다듬기: Stable Diffusion은 전체를 여러 번 고친다</a></li>
+    <li><a href="#s6">텍스트는 어떻게 들어가나: 앞에 붙이기 vs 교차 어텐션</a></li>
+    <li><a href="#s7">텍스트를 더 세게: CLIP 재순위 vs 분류기 없는 가이던스</a></li>
+    <li><a href="#s8">신경망을 몇 번 불러야 하나</a></li>
+    <li><a href="#s9">정리: 쌓기와 다듬기가 갈라놓는 것들</a></li>
+    <li><a href="#s10">그 이후: 경계가 흐려지다</a></li>
+    <li><a href="#s11">확인 퀴즈</a></li>
+  </ol>
+</nav>
+
+<div class="easy"><span class="lbl">쉽게 보기</span>
+<h3>레고를 쌓을까, 조각을 다듬을까</h3>
+<p><strong>쌓기(DALL·E)는 레고입니다.</strong> 왼쪽 위 칸부터 “지금까지 놓은 블록을 보면 다음엔 이 색이 어울리겠다”를 정해 한 칸씩 놓습니다. 1024칸이면 1024번 결정합니다. 앞에서 놓은 블록이 이상해도 빼지 않고, 그 위에 계속 쌓습니다.</p>
+<p><strong>다듬기(Stable Diffusion)는 안개 낀 유리창 닦기, 혹은 돌을 깎는 조각입니다.</strong> 처음엔 화면 전체가 지지직거리는 노이즈입니다. 신경망은 매번 “이 노이즈 속에 숨은 그림은 대략 이렇겠다”를 화면 전체에 대해 추측하고, 노이즈를 조금 걷어 냅니다. 처음엔 하늘이 위, 땅이 아래 같은 큰 윤곽만 잡히고, 갈수록 지붕 모서리 같은 세부가 생깁니다. 50번이면 50번, 매번 화면 전체를 고칩니다.</p>
+<p class="big">쌓기: 칸 1 → 칸 2 → … → 칸 1024 (한 번 놓으면 끝)<br>다듬기: 전체(흐림) → 전체(조금 선명) → … → 전체(선명)</p>
+</div>
+
+<!-- ───────── 1 ───────── -->
+<h2 id="s1">1. 같은 목표, 두 가지 분해</h2>
+<p>두 모델의 목표는 같습니다. 문장 \(c\)가 주어졌을 때 그럴듯한 그림 \(x\)의 분포 \(p(x\mid c)\)를 배우고, 거기서 하나를 뽑는 것입니다. 그런데 그림 한 장은 수십만 개의 숫자라서, 그 분포를 한 번에 적을 수 없습니다. 그래서 <strong>잘게 쪼개서</strong> 적습니다. 두 모델은 쪼개는 방향이 다릅니다.</p>
+
+<div class="split">
+<div>
+<h5>쌓기 — 공간을 따라 쪼갠다</h5>
+<div class="eq">\[p(x\mid c)=\prod_{i=1}^{N} p(x_i \mid x_1,\dots,x_{i-1},\,c)\]<span class="note">그림을 칸(토큰) \(N\)개로 자르고, 앞 칸들이 정해졌을 때 다음 칸의 분포만 배운다. 확률의 연쇄 법칙 그대로라 근사가 없다.</span></div>
+</div>
+<div>
+<h5>다듬기 — 노이즈 수준을 따라 쪼갠다</h5>
+<div class="eq">\[p(x_0\mid c)=\int p(x_T)\prod_{t=1}^{T} p(x_{t-1}\mid x_t,\,c)\,dx_{1:T}\]<span class="note">그림 전체 \(x_0\)에 노이즈를 \(T\)단계 섞은 사슬을 거꾸로 걷는다. 한 걸음은 “조금 더 깨끗한 그림 전체”의 분포.</span></div>
+</div>
+</div>
+
+<p>왼쪽은 <strong>“어디”</strong>를 단위로 결정합니다. 결정 하나가 칸 하나이고, 결정의 순서가 곧 그림의 공간 순서입니다. 오른쪽은 <strong>“얼마나 선명하게”</strong>를 단위로 결정합니다. 결정 하나가 그림 전체에 걸쳐 있고, 결정의 순서는 거친 것에서 세밀한 것으로 갑니다(4절에서 왜 그런지 봅니다). 이후의 모든 차이, 즉 실수를 고칠 수 있는지, 신경망을 몇 번 부르는지, 텍스트를 어떻게 넣는지는 이 분해 방향에서 따라 나옵니다.</p>
+
+<div class="key"><span class="lbl">핵심</span><p>쌓기는 <strong>공간의 순서</strong>로, 다듬기는 <strong>선명도의 순서</strong>로 그림을 쪼갭니다. GPT가 문장을 단어 순서로 쌓는 것과 쌓기가 똑같은 식이라는 점도 기억해 두세요(<a href="https://dev-jonghoonpark.github.io/how-gpt-works/">How GPT Works</a>).</p></div>
+
+<!-- ───────── 2 ───────── -->
+<h2 id="s2">2. 픽셀 대신 압축된 칸 위에서</h2>
+<p>256×256 컬러 그림은 숫자 196,608개입니다. 픽셀마다 쌓으면 결정이 20만 번이고, 확산도 그 크기 그대로 돌리면 무겁습니다. 그래서 둘 다 <strong>먼저 오토인코더로 그림을 작은 격자로 압축하고</strong>, 생성은 그 격자 위에서 합니다. 여기서도 두 모델의 성격이 드러납니다.</p>
+
+<div class="tw"><table>
+<tr><th></th><th>DALL·E (쌓기)</th><th>Stable Diffusion v1 (다듬기)</th></tr>
+<tr><td>압축기</td><td>dVAE (이산 VAE)</td><td>VAE (KL 정규화 오토인코더)</td></tr>
+<tr><td>입력 → 격자</td><td class="mono">256×256×3 → 32×32</td><td class="mono">512×512×3 → 64×64×4</td></tr>
+<tr><td>한 칸의 값</td><td><strong>정수 하나</strong> (코드북 8192개 중 하나)</td><td><strong>실수 4개</strong> (연속값)</td></tr>
+<tr><td>왜 그 형태인가</td><td>다음 칸을 <em>분류</em>(8192개 중 고르기)로 예측하려면 이산값이어야 한다</td><td>노이즈를 더하고 빼려면 연속값이어야 한다</td></tr>
+<tr><td>생성기</td><td>트랜스포머 디코더 120억 파라미터, 64층</td><td>U-Net 약 8.6억 파라미터</td></tr>
+<tr><td>텍스트 인코더</td><td>없음 — 텍스트 토큰 256개를 같은 시퀀스 앞에 붙임</td><td>CLIP ViT-L/14 텍스트 인코더 (토큰 77개, 768차원)</td></tr>
+</table></div>
+
+<p>“한 칸의 값”이 결정적입니다. 쌓기는 다음 칸을 고르는 <strong>분류 문제</strong>로 만들기 위해 그림을 <strong>단어처럼 이산 토큰</strong>으로 바꿉니다. 그러면 언어 모델의 소프트맥스와 교차 엔트로피를 그대로 쓸 수 있습니다. 다듬기는 칸에 가우시안 노이즈를 섞고 빼야 하므로 <strong>연속값</strong>이 필요합니다. Stable Diffusion이 확산을 픽셀이 아닌 이 잠재 공간에서 돌린다는 점이 논문 제목의 “Latent”입니다. 이전 확산 모델(픽셀 공간)보다 계산량이 크게 줄었습니다.</p>
+
+<div class="note">이산 토큰 위의 자기회귀는 오래된 생각입니다. VAE의 디코더를 자기회귀로 만들면 어떤 일이 생기는지는 <a href="https://dev-jonghoonpark.github.io/how-vlae-works/">How VLAE Works</a>에서 다룹니다.</div>
+
+<!-- ───────── 3 ───────── -->
+<h2 id="s3">3. 쌓기: DALL·E는 한 칸씩 놓는다</h2>
+<p>DALL·E는 텍스트 토큰 256개 뒤에 그림 토큰 1024개를 이어 붙인 길이 1280짜리 시퀀스를 하나의 문장처럼 다룹니다. 생성할 때는 텍스트를 넣고, 그 뒤로 그림 토큰을 <strong>래스터 순서</strong>(왼쪽→오른쪽, 위→아래)로 하나씩 샘플링합니다. 칸 \(i\)를 고를 때 모델이 볼 수 있는 것은 텍스트 전체와 칸 \(1\ldots i{-}1\)뿐입니다. 아래 칸은 아직 없으니까요.</p>
+<p>아래 데모는 16×16 토큰(실제는 32×32), 코드북 16색(실제는 8192개)으로 줄인 장난감입니다. 신경망 대신 “정답 그림의 토큰을 높은 확률로 고르되, 가끔 틀리고, 틀린 이웃이 있으면 그것을 따라 하는 경향이 있는” 가짜 모델을 씁니다. 따라 하는 경향은 실제 자기회귀 모델에도 있습니다. 모델은 앞 칸이 맞다고 믿고 그 위에 일관성 있게 이어 그리도록 학습되었기 때문입니다.</p>
+
+<div class="demo">
+  <h4>데모 1 · 한 칸씩 쌓기</h4>
+  <p class="cap">회색 빗금 = 아직 정하지 않은 칸, 테두리 = 지금 정하는 칸. ‘실수 표시’를 켜면 정답과 다른 칸에 빨간 점(직접 틀림)과 주황 점(앞의 실수를 따라 함)이 찍힙니다. 정한 칸은 끝까지 바뀌지 않습니다.</p>
+  <canvas id="d1" height="300"></canvas>
+  <div class="ctrls">
+    <div class="ctrl"><label>칸마다 틀릴 확률 <b id="d1pv"></b></label><input type="range" id="d1p" min="0" max="0.15" step="0.01" value="0.03"></div>
+    <div class="ctrl"><label>틀린 이웃을 따라 할 확률 <b id="d1qv"></b></label><input type="range" id="d1q" min="0" max="0.9" step="0.05" value="0.6"></div>
+  </div>
+  <div class="btns">
+    <button id="d1go" type="button">재생</button>
+    <button id="d1step" type="button">한 칸</button>
+    <button id="d1row" type="button">한 줄</button>
+    <button id="d1bad" type="button">다음 칸에 실수 넣기</button>
+    <button id="d1mark" type="button" aria-pressed="true">실수 표시</button>
+    <button id="d1reset" type="button">처음부터 (새 시드)</button>
+  </div>
+  <div class="readout" id="d1out"></div>
+</div>
+
+<p>‘다음 칸에 실수 넣기’를 위쪽에서 눌러 보세요. 틀린 칸 하나가 오른쪽과 아래로 번집니다. 모델은 칸 \(i\)를 정할 때 이미 놓인 칸을 <strong>조건</strong>으로 받기 때문에, 틀린 칸도 사실로 취급합니다. 그리고 그 칸을 다시 고칠 방법이 구조적으로 없습니다. 식 \(p(x_i\mid x_{&lt;i})\)에는 “앞 칸을 바꾼다”는 동작이 아예 들어 있지 않습니다.</p>
+
+<div class="key"><span class="lbl">핵심</span><p>쌓기의 결정은 <strong>되돌릴 수 없고, 앞의 결정에 조건부</strong>입니다. 그래서 실수가 뒤로 전파되고(노출 편향, exposure bias), 그림의 위쪽이 아래쪽보다 먼저, 더 적은 정보로 정해집니다. DALL·E가 후보를 512장씩 뽑아 놓고 고르는 방식(7절)을 쓴 이유 중 하나도 이것입니다.</p></div>
+
+<p>대신 쌓기에는 분명한 장점이 있습니다. 각 칸의 확률을 정확히 계산하므로 그림 전체의 로그 우도 \(\log p(x\mid c)\)를 <strong>근사 없이</strong> 구할 수 있고, 학습은 언어 모델과 똑같이 “다음 토큰 맞히기” 하나입니다. 1024칸을 학습할 때는 인과 마스크 덕분에 한 번의 순전파로 모든 칸의 손실을 동시에 계산합니다. 느린 것은 <strong>생성</strong>뿐입니다(8절).</p>
+
+<!-- ───────── 4 ───────── -->
+<h2 id="s4">4. 다듬기의 준비: 노이즈는 세밀한 것부터 지운다</h2>
+<p>확산 모델의 학습은 반대 방향 과정에서 시작합니다. 깨끗한 잠재 그림 \(x_0\)에 가우시안 노이즈를 섞어 \(x_t\)를 만듭니다. 섞는 비율은 정해진 스케줄 \(\bar\alpha_t\)를 따르고, 아무 \(t\)든 한 번에 만들 수 있습니다.</p>
+<div class="eq">\[x_t=\sqrt{\bar\alpha_t}\,x_0+\sqrt{1-\bar\alpha_t}\,\varepsilon,\qquad \varepsilon\sim\mathcal N(0,I)\]<span class="note">Stable Diffusion은 \(T=1000\), \(\beta\)를 0.00085에서 0.012까지 (제곱근 공간에서) 선형으로 늘리는 스케줄을 씁니다. \(\bar\alpha_t=\prod_{s\le t}(1-\beta_s)\). 신경망은 \(x_t\)와 \(t\), 텍스트를 받아 섞인 노이즈 \(\varepsilon\)을 맞히도록 학습합니다.</span></div>
+<p>여기서 다듬기가 왜 <strong>거친 것에서 세밀한 것으로</strong> 가는지가 나옵니다. 자연 이미지의 에너지는 낮은 주파수(넓은 색 면, 큰 윤곽)에 몰려 있고, 높은 주파수(모서리, 질감)로 갈수록 급격히 작아집니다. 반면 가우시안 노이즈는 모든 주파수에 <strong>똑같은 크기</strong>로 퍼져 있습니다. 노이즈를 조금만 섞어도 약한 고주파는 묻히고, 강한 저주파는 오래 살아남습니다.</p>
+
+<div class="demo">
+  <h4>데모 2 · 노이즈 수준 t와 살아남는 주파수</h4>
+  <p class="cap">왼쪽: \(x_t\)(64×64 그림에 실제 SD 스케줄로 노이즈를 섞음). 오른쪽: 반경 방향으로 평균 낸 파워 스펙트럼(로그 눈금). 파란 선 = 신호 \(\sqrt{\bar\alpha_t}x_0\)의 파워, 주황 선 = 노이즈의 파워. 신호가 노이즈 아래로 내려간 주파수(회색 영역)는 \(x_t\)만 보고는 알 수 없습니다.</p>
+  <div class="split">
+    <canvas id="d2a" height="260"></canvas>
+    <canvas id="d2b" height="260"></canvas>
+  </div>
+  <div class="ctrls">
+    <div class="ctrl"><label>노이즈 단계 t <b id="d2tv"></b></label><input type="range" id="d2t" min="0" max="999" step="1" value="300"></div>
+  </div>
+  <div class="readout" id="d2out"></div>
+</div>
+
+<p>t를 0에서 천천히 올려 보세요. 수백 단계만 지나도 회색 영역이 낮은 주파수 쪽으로 밀려오고, t가 900을 넘으면 거의 평균 색 하나만 남습니다. 거꾸로 걸으면 순서가 뒤집힙니다. <strong>노이즈가 많은 초반에는 큰 윤곽만 결정할 수 있고, 노이즈가 줄어드는 후반에야 세부를 결정할 수 있습니다.</strong> 확산 모델에게 누가 “윤곽부터 그려라”라고 가르친 게 아닙니다. 이미지의 스펙트럼과 노이즈의 성질에서 저절로 나오는 순서입니다.</p>
+
+<!-- ───────── 5 ───────── -->
+<h2 id="s5">5. 다듬기: Stable Diffusion은 전체를 여러 번 고친다</h2>
+<p>생성은 순수 노이즈 \(x_T\)에서 시작합니다. 매 단계 신경망 \(\varepsilon_\theta(x_t,t,c)\)가 노이즈를 예측하면, 그로부터 “지금 보기에 원래 그림은 이랬을 것”이라는 추정 \(\hat x_0\)을 얻고, 노이즈를 조금 덜어 다음 단계 \(x_{t'}\)로 갑니다. 아래는 결정적 샘플러인 DDIM의 한 걸음입니다.</p>
+<div class="eq">\[\hat x_0=\frac{x_t-\sqrt{1-\bar\alpha_t}\,\hat\varepsilon}{\sqrt{\bar\alpha_t}},\qquad x_{t'}=\sqrt{\bar\alpha_{t'}}\,\hat x_0+\sqrt{1-\bar\alpha_{t'}}\,\hat\varepsilon\]<span class="note">\(t' &lt; t\). 1000단계를 다 걷지 않고 50단계 정도로 건너뛰어도 됩니다(Stable Diffusion의 기본값 50).</span></div>
+
+<p>아래 데모는 실제 U-Net 대신, <strong>정답 그림을 알고 있지만 현재 노이즈 수준에서 보이는 주파수까지만 알려 주는</strong> 가짜 디노이저를 씁니다(가우시안 사전 분포에서의 최적 추정인 위너 필터와 같은 꼴). 또 이 가짜 모델은 실제 모델처럼, 그 순간 노이즈 위로 <strong>또렷이 보이는 것은 그림의 일부로 받아들입니다</strong>. 샘플러 식 자체는 위의 DDIM 그대로 돌아갑니다.</p>
+
+<div class="demo">
+  <h4>데모 3 · 노이즈에서 그림으로</h4>
+  <p class="cap">왼쪽: 현재 \(x_t\). 오른쪽: 이 단계에서 모델이 추정한 \(\hat x_0\). 오른쪽이 흐릿한 윤곽에서 점점 선명해지는 것이 “다듬기”입니다. ‘얼룩 넣기’는 현재 \(x_t\)에 흰 얼룩을 더합니다 — 데모 1의 실수 넣기에 해당합니다.</p>
+  <div class="split">
+    <canvas id="d3a" height="260"></canvas>
+    <canvas id="d3b" height="260"></canvas>
+  </div>
+  <div class="ctrls">
+    <div class="ctrl"><label>샘플링 단계 수 <b id="d3kv"></b></label><input type="range" id="d3k" min="5" max="100" step="5" value="50"></div>
+  </div>
+  <div class="btns">
+    <button id="d3go" type="button">재생</button>
+    <button id="d3step" type="button">한 단계</button>
+    <button id="d3bad" type="button">얼룩 넣기</button>
+    <button id="d3reset" type="button">처음부터 (새 노이즈)</button>
+  </div>
+  <div class="readout" id="d3out"></div>
+</div>
+
+<p>얼룩을 <strong>초반</strong>(t가 클 때)에 넣으면 거의 흔적 없이 사라집니다. 다음 단계에서 모델이 그림 <em>전체</em>를 다시 보고 “이건 노이즈다”라고 판단하고, 남은 노이즈와 함께 덜어 내기 때문입니다. 모델이 설명하지 못한 성분은 한 걸음마다 \(\sqrt{1-\bar\alpha_{t'}}/\sqrt{1-\bar\alpha_t}\)배로 줄어듭니다. <strong>후반</strong>에 넣으면 남습니다. 그때는 노이즈가 적어서 얼룩이 노이즈가 아니라 또렷한 내용으로 보이고, 모델은 그것을 그림의 일부로 받아들여 다듬습니다. (오른쪽 \(\hat x_0\)에 얼룩이 나타나는지 보세요.) 데모 1과 비교하면 차이가 분명합니다.</p>
+
+<div class="tw"><table>
+<tr><th></th><th>쌓기 (데모 1)</th><th>다듬기 (데모 3)</th></tr>
+<tr><td>결정 하나의 범위</td><td>칸 하나</td><td>그림 전체</td></tr>
+<tr><td>한 번 정한 것을 고치나</td><td>고치지 않는다</td><td>매 단계 전체를 다시 추정한다</td></tr>
+<tr><td>초반의 실수</td><td>뒤로 번진다</td><td>대부분 지워진다</td></tr>
+<tr><td>후반의 실수</td><td>그 칸에 남는다 (뒤에 칸이 적어 덜 번짐)</td><td>세부로 남는다</td></tr>
+<tr><td>먼저 정해지는 것</td><td>위쪽 (공간 순서)</td><td>큰 윤곽 (주파수 순서)</td></tr>
+</table></div>
+
+<div class="key"><span class="lbl">핵심</span><p>다듬기의 각 단계는 <strong>그림 전체에 대한 고쳐 쓰기</strong>입니다. 윤곽이 먼저 정해지고 세부는 나중에 정해지므로 위쪽과 아래쪽이 서로를 보며 동시에 맞춰집니다. 대가는 “전체를 한 번 보는” 비싼 신경망 호출을 여러 번 해야 한다는 것입니다.</p></div>
+
+<!-- ───────── 6 ───────── -->
+<h2 id="s6">6. 텍스트는 어떻게 들어가나: 앞에 붙이기 vs 교차 어텐션</h2>
+<p>분해 방향이 다르니 텍스트를 넣는 자리도 달라집니다. 쌓기는 “지금까지의 시퀀스”라는 하나의 맥락만 있으므로, 텍스트를 <strong>그 시퀀스의 앞부분</strong>으로 넣으면 끝입니다. 그림 토큰은 인과 마스크를 따라 텍스트 전체와 앞선 그림 토큰을 봅니다. 다듬기는 매 단계 그림 전체를 한꺼번에 처리하므로 시퀀스의 “앞”이 없습니다. 그래서 U-Net 곳곳에 <strong>교차 어텐션</strong> 층을 넣어, 그림의 각 위치가 쿼리(Q)가 되고 CLIP 텍스트 인코더 출력이 키·값(K, V)이 되게 합니다.</p>
+
+<div class="demo">
+  <h4>데모 4 · 누가 누구를 보나 (어텐션 마스크)</h4>
+  <p class="cap">텍스트 토큰 4개, 그림 토큰 9개(3×3)로 줄인 예. 행 = 보는 쪽(쿼리), 열 = 보이는 쪽(키). 칠해진 칸만 볼 수 있습니다. 행을 눌러 그 토큰이 무엇을 보는지 그림 위에서 확인하세요.</p>
+  <div class="btns" id="d4mode"></div>
+  <canvas id="d4" height="330"></canvas>
+  <div class="readout" id="d4out"></div>
+</div>
+
+<p>쌓기의 마스크는 아래 삼각형입니다. 그림 토큰 5번은 텍스트 전체와 1~4번만 봅니다. 다듬기에서는 그림 토큰끼리의 셀프 어텐션이 <strong>꽉 찬 정사각형</strong>이고, 텍스트는 별도의 교차 어텐션으로 들어옵니다. 1번 칸도 9번 칸을 봅니다. 이 마스크 모양의 차이가 곧 “앞만 보며 쌓기”와 “전체를 보며 다듬기”의 차이입니다. (실제 DALL·E는 계산을 줄이려고 행·열·합성곱 모양의 희소 어텐션을 섞어 쓰지만, 앞 칸만 본다는 인과성은 같습니다.)</p>
+
+<!-- ───────── 7 ───────── -->
+<h2 id="s7">7. 텍스트를 더 세게: CLIP 재순위 vs 분류기 없는 가이던스</h2>
+<p>조건부 모델에서 그냥 뽑으면 그림이 문장을 대충만 따르는 경우가 많습니다. 두 모델은 “문장을 더 잘 따르게” 만드는 방법도 다릅니다.</p>
+<p><strong>DALL·E: 많이 뽑고 고르기.</strong> 한 문장에 후보를 512장 뽑은 뒤, 따로 학습한 CLIP으로 문장과 그림의 유사도를 매겨 상위 몇 장만 내놓습니다. 한 장을 그리는 과정에 개입할 방법이 마땅치 않은 쌓기에서 자연스러운 선택입니다. 중간에 고칠 수 없으니, 끝난 결과들 중에서 고릅니다.</p>
+<p><strong>Stable Diffusion: 매 단계 방향을 비틀기.</strong> 다듬기는 매 단계 노이즈 예측이라는 “방향”을 내놓으므로, 그 방향 자체를 조작할 수 있습니다. 같은 신경망으로 텍스트가 있을 때와 없을 때(빈 문장)의 예측을 둘 다 구하고, 그 차이를 \(w\)배 키웁니다.</p>
+<div class="eq">\[\tilde\varepsilon=\varepsilon_\theta(x_t,\varnothing)+w\,\big(\varepsilon_\theta(x_t,c)-\varepsilon_\theta(x_t,\varnothing)\big)\]<span class="note">분류기 없는 가이던스(classifier-free guidance, Ho &amp; Salimans). \(w=1\)이면 그냥 조건부, \(w&gt;1\)이면 “문장이 있을 때 달라지는 방향”을 과장합니다. Stable Diffusion의 흔한 기본값은 \(w=7.5\).</span></div>
+
+<div class="demo">
+  <h4>데모 5 · 가이던스 세기 w (2차원 장난감)</h4>
+  <p class="cap">데이터는 세 무리(A·B·C)의 가우시안 혼합이고, 조건은 “A”. 점 400개를 노이즈에서 출발시켜 담금질 랑주뱅 동역학으로 다듬습니다. 각 단계의 점수(score)는 위 식처럼 무조건 점수와 조건부 점수를 w로 섞은 것이고, 해석적으로 정확히 계산합니다.</p>
+  <canvas id="d5" height="320"></canvas>
+  <div class="ctrls">
+    <div class="ctrl"><label>가이던스 w <b id="d5wv"></b></label><input type="range" id="d5w" min="0" max="10" step="0.5" value="1"></div>
+  </div>
+  <div class="btns">
+    <button id="d5go" type="button">샘플링</button>
+  </div>
+  <div class="readout" id="d5out"></div>
+</div>
+
+<p>w = 0이면 세 무리에 고루 퍼지고(문장을 무시), w = 1이면 A에 모입니다. w를 더 키우면 A 무리 전체가 B·C에서 <strong>먼 쪽으로 밀려납니다</strong>(중심 좌표가 원래 위치에서 벗어나는 것을 보세요). B·C와 헷갈릴 여지가 있던 경계 쪽 그림은 사라지고, 진짜 A보다 “더 A다운” 쪽으로 치우친 그림만 나옵니다. 가이던스 식이 사실상 \(p(x)^{1-w}\,p(x\mid c)^{w}\)에서 뽑는 것과 같기 때문입니다. 문장을 더 확실하게 따르는 대신 다양성과 자연스러움을 잃는 것, 실제 이미지에서 w를 너무 키우면 색이 과포화되고 비슷한 그림만 나오는 현상과 같은 원리입니다. 이런 조작이 가능한 것은 다듬기가 <strong>매 단계 연속적인 방향</strong>을 내놓기 때문입니다. (자기회귀에도 로짓을 같은 식으로 섞는 가이던스가 나중에 쓰이게 됩니다 — 10절의 Parti.)</p>
+
+<!-- ───────── 8 ───────── -->
+<h2 id="s8">8. 신경망을 몇 번 불러야 하나</h2>
+<p>생성 속도를 정하는 것은 <strong>앞의 결과를 기다려야 하는 순차 호출의 수</strong>입니다. 쌓기는 칸 \(i\)를 정해야 칸 \(i{+}1\)을 정할 수 있으므로 토큰 수만큼 순차로 불러야 합니다(KV 캐시로 호출당 비용은 줄일 수 있지만 횟수는 못 줄입니다). 다듬기는 단계 수만큼 부르지만, 한 번에 그림 전체를 처리합니다.</p>
+
+<div class="demo">
+  <h4>데모 6 · 순차 호출 수 계산기</h4>
+  <p class="cap">막대는 로그 눈금. 쌓기 = 격자 변²(후보를 여러 장 뽑아도 동시에 돌릴 수 있어 순차 횟수는 그대로). 다듬기 = 단계 수(가이던스의 조건·무조건 두 번은 보통 한 배치로 묶음).</p>
+  <div class="ctrls">
+    <div class="ctrl"><label>쌓기: 토큰 격자 <b id="d6gv"></b></label><input type="range" id="d6g" min="0" max="3" step="1" value="1"></div>
+    <div class="ctrl"><label>다듬기: 샘플링 단계 <b id="d6sv"></b></label><input type="range" id="d6s" min="0" max="7" step="1" value="4"></div>
+  </div>
+  <canvas id="d6" height="150"></canvas>
+  <div class="readout" id="d6out"></div>
+</div>
+
+<p>32×32 격자면 순차 호출이 1024번, 다듬기는 50번입니다. 해상도를 두 배로 올리면 쌓기는 4배가 되지만 다듬기의 단계 수는 그대로입니다(호출당 비용만 늘어남). 단계 수를 1~4번까지 줄이는 증류 기법(일관성 모델, 적대적 증류 등)이 확산 쪽에서 활발한 것도 이 축 때문입니다. 반대로 쌓기는 호출당 비용이 작고 LLM용으로 다듬어진 서빙 기술(KV 캐시, 배치, 투기적 디코딩)을 그대로 쓸 수 있다는 장점이 있습니다. 어느 쪽이 실제로 빠른지는 모델 크기와 하드웨어에 따라 달라지므로, 여기서는 “순차로 기다려야 하는 횟수”만 비교합니다.</p>
+
+<!-- ───────── 9 ───────── -->
+<h2 id="s9">9. 정리: 쌓기와 다듬기가 갈라놓는 것들</h2>
+<div class="tw"><table>
+<tr><th></th><th>쌓기 (자기회귀, DALL·E)</th><th>다듬기 (확산, Stable Diffusion)</th></tr>
+<tr><td>분해 방향</td><td>공간 순서: 칸 하나씩</td><td>노이즈 수준: 전체를 조금씩</td></tr>
+<tr><td>칸의 값</td><td>이산 토큰 (분류)</td><td>연속 잠재값 (회귀: 노이즈 예측)</td></tr>
+<tr><td>학습 목표</td><td>다음 토큰 교차 엔트로피 — 정확한 우도</td><td>노이즈 예측 MSE — 우도의 하한(ELBO)과 연결</td></tr>
+<tr><td>실수 처리</td><td>고칠 수 없음, 뒤로 전파</td><td>다음 단계에서 다시 추정</td></tr>
+<tr><td>텍스트 넣기</td><td>시퀀스 앞에 붙임 (인과 마스크)</td><td>교차 어텐션 (Q = 그림, K·V = 텍스트)</td></tr>
+<tr><td>텍스트 따르게 하기</td><td>많이 뽑고 CLIP으로 재순위</td><td>분류기 없는 가이던스</td></tr>
+<tr><td>순차 호출</td><td>토큰 수 (1024)</td><td>단계 수 (약 50)</td></tr>
+<tr><td>부분 수정 (인페인팅)</td><td>래스터 순서상 “아래 채우기”는 쉽지만 가운데 구멍은 어색함</td><td>구멍 밖은 원본에 노이즈를 섞어 고정하고 안만 다듬으면 됨</td></tr>
+<tr><td>이미지 → 이미지</td><td>앞부분 토큰을 주고 이어 그리기</td><td>원본에 노이즈를 중간까지만 섞고 거기서 다듬기 (img2img 강도 = 출발 t)</td></tr>
+</table></div>
+
+<div class="note">마지막 두 줄은 데모 3의 얼룩 실험과 같은 이야기입니다. 다듬기는 “어느 노이즈 수준에서 출발하느냐”로 원본을 얼마나 남길지를 정할 수 있습니다. 쌓기에는 그런 손잡이가 없고, 대신 “어디까지 주고 이어 그리게 하느냐”라는 공간적 손잡이가 있습니다.</div>
+
+<!-- ───────── 10 ───────── -->
+<h2 id="s10">10. 그 이후: 경계가 흐려지다</h2>
+<p>이 비교에는 함정이 하나 있습니다. <strong>“DALL·E = 자기회귀”는 첫 번째 DALL·E(2021)에만 맞습니다.</strong></p>
+<ul>
+<li><strong>DALL·E 2 (2022)</strong>는 다듬기로 넘어갔습니다. 텍스트 → CLIP 이미지 임베딩(prior) → 확산 디코더로 그림을 만드는 unCLIP 구조입니다. <strong>DALL·E 3 (2023)</strong>도 확산 모델이며, 학습 데이터의 캡션을 더 자세하게 다시 쓴 것이 핵심 개선입니다.</li>
+<li><strong>Stable Diffusion 3 (2024)</strong>은 U-Net 대신 트랜스포머(MMDiT)를 쓰고, 텍스트와 그림 토큰을 한 어텐션에 함께 넣습니다. 노이즈 경로도 직선에 가까운 rectified flow로 바꿨습니다. 그래도 여전히 <strong>전체를 여러 번 다듬는</strong> 방식입니다.</li>
+<li>쌓기도 사라지지 않았습니다. Google의 <strong>Parti (2022)</strong>는 200억 파라미터 자기회귀 모델로 확산과 경쟁했고, <strong>VAR (2024)</strong>은 다음 <em>칸</em> 대신 다음 <em>해상도</em>를 예측해 “거친 것에서 세밀한 것으로” 쌓습니다. <strong>MAR (2024)</strong>은 순서대로 쌓되 각 토큰의 값은 작은 확산 헤드로 연속값을 뽑습니다. OpenAI는 2025년 GPT-4o의 이미지 생성을 자기회귀 방식이라고 소개했습니다.</li>
+</ul>
+
+<div class="key"><span class="lbl">핵심</span><p><strong>신경망 구조(트랜스포머냐 U-Net이냐)와 생성 방식(쌓기냐 다듬기냐)은 별개의 축</strong>입니다. 트랜스포머로 다듬을 수도 있고(DiT, SD3), 다듬듯 거친 것부터 쌓을 수도 있습니다(VAR). 이 페이지에서 본 것은 그중 생성 방식 축, 즉 “결정을 공간 순서로 하나씩 확정하느냐, 전체를 노이즈 수준 순서로 여러 번 고쳐 쓰느냐”의 차이입니다.</p></div>
+
+<!-- ───────── 11 ───────── -->
+<h2 id="s11">11. 확인 퀴즈</h2>
+<div id="quiz"></div>
+<div class="quiz-score" id="quizScore"></div>
+
+<footer>
+  <p class="refs"><strong>참고 문헌</strong><br>
+  Ramesh 외 (2021), <em>Zero-Shot Text-to-Image Generation</em> (DALL·E) — <a href="https://arxiv.org/abs/2102.12092">arXiv:2102.12092</a><br>
+  Rombach 외 (2022), <em>High-Resolution Image Synthesis with Latent Diffusion Models</em> (Stable Diffusion) — <a href="https://arxiv.org/abs/2112.10752">arXiv:2112.10752</a><br>
+  Ho, Jain &amp; Abbeel (2020), <em>Denoising Diffusion Probabilistic Models</em> — <a href="https://arxiv.org/abs/2006.11239">arXiv:2006.11239</a><br>
+  Song, Meng &amp; Ermon (2021), <em>Denoising Diffusion Implicit Models</em> — <a href="https://arxiv.org/abs/2010.02502">arXiv:2010.02502</a><br>
+  Ho &amp; Salimans (2022), <em>Classifier-Free Diffusion Guidance</em> — <a href="https://arxiv.org/abs/2207.12598">arXiv:2207.12598</a><br>
+  Radford 외 (2021), <em>Learning Transferable Visual Models From Natural Language Supervision</em> (CLIP) — <a href="https://arxiv.org/abs/2103.00020">arXiv:2103.00020</a><br>
+  Ramesh 외 (2022), <em>Hierarchical Text-Conditional Image Generation with CLIP Latents</em> (DALL·E 2) — <a href="https://arxiv.org/abs/2204.06125">arXiv:2204.06125</a><br>
+  Yu 외 (2022), <em>Scaling Autoregressive Models for Content-Rich Text-to-Image Generation</em> (Parti) — <a href="https://arxiv.org/abs/2206.10789">arXiv:2206.10789</a><br>
+  Esser 외 (2024), <em>Scaling Rectified Flow Transformers for High-Resolution Image Synthesis</em> (SD3) — <a href="https://arxiv.org/abs/2403.03206">arXiv:2403.03206</a><br>
+  Tian 외 (2024), <em>Visual Autoregressive Modeling: Scalable Image Generation via Next-Scale Prediction</em> (VAR) — <a href="https://arxiv.org/abs/2404.02905">arXiv:2404.02905</a><br>
+  Li 외 (2024), <em>Autoregressive Image Generation without Vector Quantization</em> (MAR) — <a href="https://arxiv.org/abs/2406.11838">arXiv:2406.11838</a><br>
+  Dieleman (2024), <em>Diffusion is spectral autoregression</em> — <a href="https://sander.ai/2024/09/02/spectral-autoregression.html">블로그</a> (4절 스펙트럼 관점)</p>
+  <p>데모의 신경망은 모두 동작 방식을 보여 주기 위한 가짜 모델입니다(데모 5의 점수 함수만 해석적으로 정확). <a href="https://github.com/dev-jonghoonpark/how-ai-works">how-ai-works</a> 시리즈 · <a href="https://github.com/dev-jonghoonpark/how-text-to-image-works">소스</a></p>
+</footer>
+</div>
+<script>
+var $=function(s){return document.querySelector(s);};
+var cssCache={};
+function css(n){if(!(n in cssCache))cssCache[n]=getComputedStyle(document.documentElement).getPropertyValue(n).trim();return cssCache[n];}
+function setup(c){var dpr=window.devicePixelRatio||1,w=c.clientWidth,h=+c.getAttribute('height');
+  c.style.height=h+'px';c.width=Math.round(w*dpr);c.height=Math.round(h*dpr);var g=c.getContext('2d');g.setTransform(dpr,0,0,dpr,0,0);
+  g.font='12px system-ui,-apple-system,"Apple SD Gothic Neo",sans-serif';return {g:g,w:w,h:h};}
+function rng(seed){var s=seed>>>0||1;return function(){s^=s<<13;s>>>=0;s^=s>>>17;s^=s<<5;s>>>=0;return s/4294967296;};}
+function gauss(r){var u=1-r(),v=r();return Math.sqrt(-2*Math.log(u))*Math.cos(2*Math.PI*v);}
+function clamp(x,a,b){return x<a?a:x>b?b:x;}
+
+/* ══════ 공통: 64×64 목표 그림 (값 범위 −1..1, RGB) ══════ */
+var N=64;
+var TARGET=(function(){
+  var img=[new Float64Array(N*N),new Float64Array(N*N),new Float64Array(N*N)];
+  function put(x,y,c){var i=y*N+x;img[0][i]=c[0];img[1][i]=c[1];img[2][i]=c[2];}
+  for(var y=0;y<N;y++)for(var x=0;x<N;x++){
+    var t=y/40,c=[0.95-0.5*t,0.55-0.15*t,0.35+0.35*t];               /* 해 질 녘 하늘 */
+    var dx=x-45,dy=y-17;if(dx*dx+dy*dy<49)c=[1,0.85,0.35];             /* 해 */
+    if(y>12+Math.abs(x-20)*0.9&&y<42)c=[0.35,0.38,0.5];                 /* 먼 산 */
+    if(y>20+Math.abs(x-46)*0.75&&y<42)c=[0.25,0.33,0.4];                /* 가까운 산 */
+    if(y>=12+Math.abs(x-20)*0.9&&y<15+Math.abs(x-20)*0.9&&y<20)c=[0.95,0.95,0.97]; /* 눈 */
+    if(y>=42)c=[0.25+0.05*Math.sin(x*1.3+y),0.55-0.004*(y-42),0.25];        /* 풀밭 */
+    if(x>=10&&x<26&&y>=46&&y<58)c=[0.92,0.86,0.72];                     /* 집 벽 */
+    if(y>=37&&y<46&&Math.abs(x-18)<=(y-37)+1)c=[0.82,0.18,0.16];       /* 빨간 지붕 */
+    if(x>=15&&x<19&&y>=50&&y<58)c=[0.45,0.28,0.15];                     /* 문 */
+    if(x>=21&&x<24&&y>=49&&y<52)c=[0.45,0.7,0.95];                      /* 창 */
+    put(x,y,[c[0]*2-1,c[1]*2-1,c[2]*2-1]);
+  }
+  return img;
+})();
+function drawImg(g,img,X,Y,S,n){/* img: 3채널 −1..1, n×n */
+  n=n||N;var id=g.createImageData(n,n);
+  for(var i=0;i<n*n;i++){for(var k=0;k<3;k++)id.data[i*4+k]=clamp((img[k][i]+1)*127.5,0,255);id.data[i*4+3]=255;}
+  var oc=document.createElement('canvas');oc.width=n;oc.height=n;oc.getContext('2d').putImageData(id,0,0);
+  g.imageSmoothingEnabled=false;g.drawImage(oc,X,Y,S,S);
+}
+
+/* ══════ FFT (64, 반복 radix-2) ══════ */
+function fft1(re,im,inv){var n=re.length,j=0,i,k;
+  for(i=1;i<n;i++){var bit=n>>1;for(;j&bit;bit>>=1)j^=bit;j^=bit;if(i<j){var t=re[i];re[i]=re[j];re[j]=t;t=im[i];im[i]=im[j];im[j]=t;}}
+  for(var len=2;len<=n;len<<=1){var a=2*Math.PI/len*(inv?1:-1),wr=Math.cos(a),wi=Math.sin(a);
+    for(i=0;i<n;i+=len){var cr=1,ci=0;for(k=0;k<len/2;k++){var ur=re[i+k],ui=im[i+k],vr=re[i+k+len/2]*cr-im[i+k+len/2]*ci,vi=re[i+k+len/2]*ci+im[i+k+len/2]*cr;
+      re[i+k]=ur+vr;im[i+k]=ui+vi;re[i+k+len/2]=ur-vr;im[i+k+len/2]=ui-vi;var nr=cr*wr-ci*wi;ci=cr*wi+ci*wr;cr=nr;}}}
+  if(inv)for(i=0;i<n;i++){re[i]/=n;im[i]/=n;}
+}
+function fft2(re,im,inv){var r=new Float64Array(N),m=new Float64Array(N),x,y;
+  for(y=0;y<N;y++){for(x=0;x<N;x++){r[x]=re[y*N+x];m[x]=im[y*N+x];}fft1(r,m,inv);for(x=0;x<N;x++){re[y*N+x]=r[x];im[y*N+x]=m[x];}}
+  for(x=0;x<N;x++){for(y=0;y<N;y++){r[y]=re[y*N+x];m[y]=im[y*N+x];}fft1(r,m,inv);for(y=0;y<N;y++){re[y*N+x]=r[y];im[y*N+x]=m[y];}}
+}
+function radius(i){var u=i%N,v=(i/N)|0;if(u>N/2)u-=N;if(v>N/2)v-=N;return Math.sqrt(u*u+v*v);}
+var NB=33;
+var TF=TARGET.map(function(ch){var re=Float64Array.from(ch),im=new Float64Array(N*N);fft2(re,im,false);return {re:re,im:im};});
+/* 반경별 평균 파워 (세 채널 평균, DC 제외) */
+var PR=(function(){var s=new Float64Array(NB),c=new Float64Array(NB);
+  for(var i=0;i<N*N;i++){var r=Math.round(radius(i));if(r>=NB)continue;for(var k=0;k<3;k++){s[r]+=TF[k].re[i]*TF[k].re[i]+TF[k].im[i]*TF[k].im[i];c[r]++;}}
+  for(var r2=0;r2<NB;r2++)s[r2]/=Math.max(1,c[r2]);return s;})();
+
+/* SD 스케줄: scaled_linear */
+var T=1000,ABAR=(function(){var a=new Float64Array(T),p=1,b0=Math.sqrt(0.00085),b1=Math.sqrt(0.012);
+  for(var t=0;t<T;t++){var b=Math.pow(b0+(b1-b0)*t/(T-1),2);p*=1-b;a[t]=p;}return a;})();
+
+/* ══════ 데모 1: 쌓기 ══════ */
+var G1=16,PAL=[[0.95,0.55,0.35],[0.75,0.5,0.5],[0.55,0.45,0.62],[1,0.85,0.35],[0.35,0.38,0.5],[0.25,0.33,0.4],[0.95,0.95,0.97],
+  [0.27,0.5,0.25],[0.2,0.45,0.22],[0.92,0.86,0.72],[0.82,0.18,0.16],[0.45,0.28,0.15],[0.45,0.7,0.95],[0.85,0.52,0.42],[0.62,0.48,0.56],[0.3,0.55,0.28]];
+var TOK=(function(){var t=[];var s=N/G1;
+  for(var gy=0;gy<G1;gy++)for(var gx=0;gx<G1;gx++){var m=[0,0,0];
+    for(var y=0;y<s;y++)for(var x=0;x<s;x++){var i=(gy*s+y)*N+gx*s+x;for(var k=0;k<3;k++)m[k]+=(TARGET[k][i]+1)/2;}
+    m=m.map(function(v){return v/(s*s);});var best=0,bd=1e9;
+    PAL.forEach(function(p,j){var d=(p[0]-m[0])*(p[0]-m[0])+(p[1]-m[1])*(p[1]-m[1])+(p[2]-m[2])*(p[2]-m[2]);if(d<bd){bd=d;best=j;}});t.push(best);}
+  return t;})();
+var D1={seed:7,pos:0,tok:[],kind:[],run:false,force:false,mark:true};
+function initD1(){D1.r=rng(D1.seed);D1.pos=0;D1.tok=[];D1.kind=[];D1.force=false;}
+function stepD1(){if(D1.pos>=G1*G1)return;var i=D1.pos,x=i%G1,y=(i/G1)|0,p=+$('#d1p').value,q=+$('#d1q').value,r=D1.r;
+  var nb=[];if(x>0)nb.push(i-1);if(y>0)nb.push(i-G1);
+  var bad=nb.filter(function(j){return D1.kind[j]>0;});var t=TOK[i],k=0;
+  if(D1.force){t=(TOK[i]+5+Math.floor(r()*6))%PAL.length;if(t===TOK[i])t=(t+1)%PAL.length;k=1;D1.force=false;}
+  else if(bad.length&&r()<q){t=D1.tok[bad[Math.floor(r()*bad.length)]];k=t===TOK[i]?0:2;}
+  else if(r()<p){t=Math.floor(r()*PAL.length);k=t===TOK[i]?0:1;}
+  D1.tok[i]=t;D1.kind[i]=k;D1.pos++;}
+function drawD1(){var c=$('#d1');c.setAttribute('height',String(Math.min(300,Math.round((c.clientWidth-30)/2)+34)));var S=setup(c),g=S.g,W=S.w,H=S.h;
+  var side=Math.min(H-30,(W-30)/2),cs=side/G1,X1=10,X2=W-side-10,Y=10;
+  for(var i=0;i<G1*G1;i++){var x=i%G1,y=(i/G1)|0,px=X1+x*cs,py=Y+y*cs;
+    if(i<D1.pos){var p=PAL[D1.tok[i]];g.fillStyle='rgb('+p.map(function(v){return Math.round(v*255);})+')';g.fillRect(px,py,cs+0.5,cs+0.5);}
+    else{g.fillStyle=css('--page');g.fillRect(px,py,cs,cs);g.strokeStyle=css('--grid');g.lineWidth=1;g.beginPath();g.moveTo(px,py+cs);g.lineTo(px+cs,py);g.stroke();}
+    var tp=PAL[TOK[i]];g.fillStyle='rgb('+tp.map(function(v){return Math.round(v*255);})+')';g.fillRect(X2+x*cs,Y+y*cs,cs+0.5,cs+0.5);
+    if(D1.mark&&i<D1.pos&&D1.kind[i]){g.fillStyle=D1.kind[i]===1?css('--s8'):css('--s2');g.strokeStyle='#fff';g.lineWidth=1;
+      g.beginPath();g.arc(px+cs/2,py+cs/2,Math.max(2,cs*0.2),0,7);g.fill();g.stroke();}}
+  if(D1.pos<G1*G1){var cx=D1.pos%G1,cy=(D1.pos/G1)|0;g.strokeStyle=css('--s1');g.lineWidth=2.5;g.strokeRect(X1+cx*cs,Y+cy*cs,cs,cs);}
+  g.strokeStyle=css('--border');g.lineWidth=1;g.strokeRect(X1,Y,side,side);g.strokeRect(X2,Y,side,side);
+  g.fillStyle=css('--text-secondary');g.textAlign='center';
+  g.fillText('모델이 쌓는 중',X1+side/2,Y+side+16);g.fillText('정답 토큰 (비교용)',X2+side/2,Y+side+16);g.textAlign='left';
+  var e1=0,e2=0;for(var j=0;j<D1.pos;j++){if(D1.kind[j]===1)e1++;else if(D1.kind[j]===2)e2++;}
+  $('#d1out').innerHTML='<span>결정한 토큰<b>'+D1.pos+' / '+G1*G1+'</b></span><span>직접 틀린 칸<b>'+e1+'</b></span><span>앞의 실수를 따라 한 칸<b>'+e2+'</b></span><span>고쳐진 칸<b>0</b></span>';
+  $('#d1pv').textContent=(+$('#d1p').value).toFixed(2);$('#d1qv').textContent=(+$('#d1q').value).toFixed(2);
+}
+function loopD1(){if(!D1.run)return;for(var k=0;k<2;k++)stepD1();drawD1();if(D1.pos>=G1*G1){D1.run=false;$('#d1go').textContent='재생';return;}setTimeout(loopD1,30);}
+$('#d1go').addEventListener('click',function(){if(D1.pos>=G1*G1)initD1();D1.run=!D1.run;this.textContent=D1.run?'일시정지':'재생';if(D1.run)loopD1();});
+$('#d1step').addEventListener('click',function(){stepD1();drawD1();});
+$('#d1row').addEventListener('click',function(){var e=Math.min(G1*G1,(Math.floor(D1.pos/G1)+1)*G1);while(D1.pos<e)stepD1();drawD1();});
+$('#d1bad').addEventListener('click',function(){D1.force=true;stepD1();drawD1();});
+$('#d1mark').addEventListener('click',function(){D1.mark=!D1.mark;this.setAttribute('aria-pressed',String(D1.mark));drawD1();});
+$('#d1reset').addEventListener('click',function(){D1.run=false;$('#d1go').textContent='재생';D1.seed++;initD1();drawD1();});
+['#d1p','#d1q'].forEach(function(s){$(s).addEventListener('input',drawD1);});
+
+/* ══════ 데모 2: 노이즈와 스펙트럼 ══════ */
+var EPS2=(function(){var r=rng(42);return [0,1,2].map(function(){var a=new Float64Array(N*N);for(var i=0;i<N*N;i++)a[i]=gauss(r);return a;});})();
+function drawD2(){var t=+$('#d2t').value,ab=ABAR[t],sa=Math.sqrt(ab),sb=Math.sqrt(1-ab);
+  var xt=[0,1,2].map(function(k){var a=new Float64Array(N*N);for(var i=0;i<N*N;i++)a[i]=sa*TARGET[k][i]+sb*EPS2[k][i];return a;});
+  var A=setup($('#d2a')),s=Math.min(A.w,A.h)-10;drawImg(A.g,xt,(A.w-s)/2,5,s);
+  var B=setup($('#d2b')),g=B.g,W=B.w,H=B.h,L=40,R=W-10,Tp=10,Bt=H-30;
+  var sig=[],noi=N*N*(1-ab);for(var r=1;r<NB;r++)sig.push(PR[r]*ab);
+  var lo=Math.log10(Math.max(1e-1,Math.min.apply(null,sig.concat([noi]))*0.5)),hi=Math.log10(Math.max.apply(null,sig.concat([noi]))*2);
+  lo=Math.max(lo,0);hi=Math.max(hi,lo+1);
+  function X(r){return L+(R-L)*(r-1)/(NB-2);}function Y(v){return Bt-(Bt-Tp)*(Math.log10(Math.max(v,1e-9))-lo)/(hi-lo);}
+  var cross=NB;for(var r3=1;r3<NB;r3++){if(PR[r3]*ab<noi){cross=r3;break;}}
+  if(cross<NB){g.fillStyle=css('--grid');g.globalAlpha=0.6;g.fillRect(X(cross),Tp,R-X(cross),Bt-Tp);g.globalAlpha=1;}
+  g.strokeStyle=css('--axis');g.lineWidth=1;g.beginPath();g.moveTo(L,Tp);g.lineTo(L,Bt);g.lineTo(R,Bt);g.stroke();
+  g.fillStyle=css('--muted');g.fillText('주파수 반경 →',R-80,H-8);g.fillText('저',L,H-8);
+  g.save();g.translate(12,(Tp+Bt)/2);g.rotate(-Math.PI/2);g.textAlign='center';g.fillText('파워 (log)',0,0);g.restore();
+  g.strokeStyle=css('--s1');g.lineWidth=2;g.beginPath();for(var r4=1;r4<NB;r4++){var px=X(r4),py=clamp(Y(PR[r4]*ab),Tp,Bt);r4===1?g.moveTo(px,py):g.lineTo(px,py);}g.stroke();
+  g.strokeStyle=css('--s2');g.beginPath();var ny=clamp(Y(noi),Tp,Bt);g.moveTo(L,ny);g.lineTo(R,ny);g.stroke();
+  var snr=ab/(1-ab);
+  $('#d2out').innerHTML='<span>ᾱ_t<b>'+ab.toFixed(4)+'</b></span><span>신호 대 잡음비 ᾱ/(1−ᾱ)<b>'+(snr>=1?snr.toFixed(1):snr.toExponential(1))+'</b></span><span>노이즈 위로 보이는 주파수<b>'+(cross>=NB?'전부':cross<=1?'평균 색 뿐':'반경 &lt; '+cross+' / 32')+'</b></span>';
+  $('#d2tv').textContent=t;
+}
+$('#d2t').addEventListener('input',drawD2);
+
+/* ══════ 데모 3: DDIM으로 다듬기 ══════ */
+var D3={};
+function gain(i,ab){var nv=N*N*(1-ab)/Math.max(ab,1e-12),r=Math.min(NB-1,Math.round(radius(i))),P=i===0?1e12:PR[r];return P/(P+nv);}
+function x0hat(ab,F){/* 위너 필터: 모델이 그리고 있는 그림 F의 스펙트럼 × G, G = P/(P+σ²), σ² = N²(1−ᾱ)/ᾱ — 노이즈에 묻힌 주파수는 아직 모른다 */
+  F=F||TF;return F.map(function(Fc){var re=new Float64Array(N*N),im=new Float64Array(N*N);
+    for(var i=0;i<N*N;i++){var G=gain(i,ab);re[i]=Fc.re[i]*G;im[i]=Fc.im[i]*G;}
+    fft2(re,im,true);return re;});
+}
+function initD3(seed){var K=+$('#d3k').value,r=rng(seed||D3.seed||11);D3.seed=seed||D3.seed||11;
+  D3.ts=[];for(var k=0;k<K;k++)D3.ts.push(Math.round((T-1)*(1-k/K)));D3.k=0;
+  D3.x=[0,1,2].map(function(){var a=new Float64Array(N*N);for(var i=0;i<N*N;i++)a[i]=gauss(r);return a;});
+  D3.F=TF;D3.x0=x0hat(ABAR[D3.ts[0]]);D3.blob=null;D3.twin=null;D3.run=false;$('#d3go').textContent='재생';}
+function ddim(x,ab,ab2,F){var x0=x0hat(ab,F),sa=Math.sqrt(ab),sb=Math.sqrt(1-ab),sa2=Math.sqrt(ab2),sb2=Math.sqrt(1-ab2);
+  for(var c=0;c<3;c++)for(var i=0;i<N*N;i++){var e=(x[c][i]-sa*x0[c][i])/sb;x[c][i]=sa2*x0[c][i]+sb2*e;}return x0;}
+function abAt(k){return k<D3.ts.length?ABAR[D3.ts[k]]:1;}
+function stepD3(){if(D3.k>=D3.ts.length)return;var ab=abAt(D3.k),ab2=abAt(D3.k+1);
+  var x0=ddim(D3.x,ab,ab2,D3.F);if(D3.twin)ddim(D3.twin,ab,ab2,TF);
+  D3.k++;D3.x0=D3.k<D3.ts.length?x0hat(abAt(D3.k),D3.F):x0;}
+var BC=24*N+32;
+function blobD3(){if(D3.k>=D3.ts.length)return;var cx=32,cy=24,amp=1.6;
+  if(!D3.twin)D3.twin=D3.x.map(function(a){return Float64Array.from(a);});
+  var ab=abAt(D3.k),sa=Math.sqrt(ab),bre=new Float64Array(N*N),bim=new Float64Array(N*N);
+  for(var y=0;y<N;y++)for(var x=0;x<N;x++){var w=amp*Math.exp(-((x-cx)*(x-cx)+(y-cy)*(y-cy))/18);bre[y*N+x]=w;for(var c=0;c<3;c++)D3.x[c][y*N+x]+=w;}
+  /* 모델은 지금 노이즈 위로 또렷이 보이는 성분(G≈1)만 그림의 일부로 받아들인다 */
+  fft2(bre,bim,false);D3.F=D3.F.map(function(Fc){var re=Float64Array.from(Fc.re),im=Float64Array.from(Fc.im);
+    for(var i=0;i<N*N;i++){var G=gain(i,ab);re[i]+=G*bre[i]/sa;im[i]+=G*bim[i]/sa;}return {re:re,im:im};});
+  D3.blob={rel:amp/sa,at:D3.ts[D3.k]};D3.x0=x0hat(ab,D3.F);drawD3();}
+function blobLeft(){/* 얼룩 중심에서, 얼룩 없이 같은 노이즈로 진행한 쌍둥이와의 차이 (그림 크기로 환산) */
+  var d=0;for(var c=0;c<3;c++)d+=D3.x[c][BC]-D3.twin[c][BC];return d/3/Math.sqrt(abAt(D3.k))/D3.blob.rel;}
+function drawD3(){var A=setup($('#d3a')),s=Math.min(A.w,A.h)-24;drawImg(A.g,D3.x,(A.w-s)/2,4,s);
+  A.g.fillStyle=css('--muted');A.g.textAlign='center';A.g.fillText('x_t',A.w/2,A.h-6);
+  var B=setup($('#d3b')),s2=Math.min(B.w,B.h)-24;
+  var show=D3.k>=D3.ts.length?D3.x:D3.x0;drawImg(B.g,show,(B.w-s2)/2,4,s2);
+  B.g.fillStyle=css('--muted');B.g.textAlign='center';B.g.fillText(D3.k>=D3.ts.length?'완성 x₀':'모델의 추정 x̂₀',B.w/2,B.h-6);
+  var t=D3.k<D3.ts.length?D3.ts[D3.k]:0,err=0;for(var c=0;c<3;c++)for(var i=0;i<N*N;i++){var d=D3.x[c][i]/Math.sqrt(D3.k<D3.ts.length?ABAR[t]:1)-TARGET[c][i];err+=d*d;}
+  $('#d3out').innerHTML='<span>단계<b>'+D3.k+' / '+D3.ts.length+'</b></span><span>현재 t<b>'+t+'</b></span><span>신경망 호출<b>'+D3.k+'번</b></span>'+
+    (D3.blob?'<span>얼룩 남은 세기 (t='+D3.blob.at+'에 넣음)<b>'+(D3.blob.amp/1.6*100).toFixed(1)+'%</b></span>':'');
+  $('#d3kv').textContent=$('#d3k').value;}
+function loopD3(){if(!D3.run)return;stepD3();drawD3();if(D3.k>=D3.ts.length){D3.run=false;$('#d3go').textContent='재생';return;}setTimeout(loopD3,Math.max(30,1500/D3.ts.length));}
+$('#d3go').addEventListener('click',function(){if(D3.k>=D3.ts.length)initD3();D3.run=!D3.run;this.textContent=D3.run?'일시정지':'재생';if(D3.run)loopD3();});
+$('#d3step').addEventListener('click',function(){stepD3();drawD3();});
+$('#d3bad').addEventListener('click',blobD3);
+$('#d3reset').addEventListener('click',function(){initD3(D3.seed+1);drawD3();});
+$('#d3k').addEventListener('input',function(){initD3();drawD3();});
+
+/* ══════ 데모 4: 어텐션 마스크 ══════ */
+var D4={mode:'ar',row:8};
+var TXT=['빨간','지붕','집','해'];
+function d4can(q,k){/* 인덱스: 0..3 텍스트, 4..12 그림 */
+  if(D4.mode==='ar')return k<=q&&!(q<4&&k>=4);
+  /* 다듬기: 그림 행만. 그림↔그림 전부, 그림→텍스트 전부(교차) */
+  return q>=4;
+}
+function drawD4(){var c=$('#d4'),narrow=c.clientWidth<560;c.setAttribute('height',narrow?'500':'330');var S=setup(c),g=S.g,W=S.w,H=S.h,n=13,cs=narrow?Math.min(20,(W-70)/n):Math.min(20,(Math.min(W*0.58,H-60))/n),X=56,Y=36;
+  g.fillStyle=css('--text-secondary');g.fillText(D4.mode==='ar'?'하나의 시퀀스 [텍스트 | 그림], 인과 마스크':'셀프 어텐션(그림↔그림) + 교차 어텐션(그림→텍스트)',X-46,16);
+  for(var q=0;q<n;q++){for(var k=0;k<n;k++){var on=d4can(q,k),cross=D4.mode==='sd'&&k<4&&q>=4;
+    g.fillStyle=on?(cross?css('--s2'):k<4?css('--s3'):css('--s1')):css('--page');
+    g.globalAlpha=on?(q===D4.row?1:0.55):1;g.fillRect(X+k*cs,Y+q*cs,cs-1,cs-1);g.globalAlpha=1;}
+    g.fillStyle=q===D4.row?css('--text-primary'):css('--muted');g.textAlign='right';
+    g.fillText(q<4?TXT[q]:'그림'+(q-3),X-4,Y+q*cs+cs*0.7);g.textAlign='left';}
+  if(D4.mode==='sd'){g.fillStyle=css('--muted');g.fillText('텍스트 행은 그림을 보지 않음 (CLIP 인코더가 따로 처리)',X,Y+4*cs-cs*0.35+0);}
+  g.strokeStyle=css('--s1');g.lineWidth=2;g.strokeRect(X-1,Y+D4.row*cs-1,n*cs+1,cs+1);
+  /* 오른쪽: 3×3 그림에서 보이는 칸 */
+  var gx=narrow?X:X+n*cs+30,gs=narrow?40:Math.min(W-gx-10,150)/3,Y0=Y;if(narrow)Y=Y+n*cs+34;if(gs>12){
+    g.fillStyle=css('--text-secondary');g.fillText('그림 칸 위에서 보기',gx,Y-8);
+    for(var j=0;j<9;j++){var on2=d4can(D4.row,j+4),me=D4.row===j+4;g.fillStyle=me?css('--s8'):on2?css('--s1'):css('--page');g.globalAlpha=me?1:on2?0.6:1;
+      g.fillRect(gx+(j%3)*gs,Y+((j/3)|0)*gs,gs-2,gs-2);g.globalAlpha=1;g.fillStyle=css('--text-primary');g.fillText(String(j+1),gx+(j%3)*gs+4,Y+((j/3)|0)*gs+14);}
+    var ty=Y+3*gs+18;TXT.forEach(function(w,i){var on3=d4can(D4.row,i);g.fillStyle=on3?(D4.mode==='sd'?css('--s2'):css('--s3')):css('--grid');
+      g.fillRect(gx+i*(gs*1.05),ty,gs,22);g.fillStyle=on3?'#fff':css('--muted');g.fillText(w,gx+i*(gs*1.05)+4,ty+15);});}
+  D4.geo={X:X,Y:Y0,cs:cs,n:n};
+  var seen=0;for(var k2=0;k2<n;k2++)if(d4can(D4.row,k2))seen++;
+  $('#d4out').innerHTML='<span>선택한 토큰<b>'+(D4.row<4?TXT[D4.row]:'그림 '+(D4.row-3))+'</b></span><span>볼 수 있는 토큰<b>'+seen+' / 13</b></span>';
+}
+(function(){var box=$('#d4mode');[['ar','쌓기 (DALL·E)'],['sd','다듬기 (Stable Diffusion)']].forEach(function(m){var b=document.createElement('button');b.type='button';b.textContent=m[1];
+  b.setAttribute('aria-pressed',String(D4.mode===m[0]));b.addEventListener('click',function(){D4.mode=m[0];if(m[0]==='sd'&&D4.row<4)D4.row=8;box.querySelectorAll('button').forEach(function(x){x.setAttribute('aria-pressed','false');});b.setAttribute('aria-pressed','true');drawD4();});box.appendChild(b);});})();
+$('#d4').addEventListener('click',function(e){var r=this.getBoundingClientRect(),gm=D4.geo,y=e.clientY-r.top,q=Math.floor((y-gm.Y)/gm.cs);if(q>=0&&q<gm.n){D4.row=q;drawD4();}});
+
+/* ══════ 데모 5: 분류기 없는 가이던스 ══════ */
+var CL=[{m:[-1.2,0.4],s:0.55,c:'--s1',n:'A'},{m:[0.9,0.9],s:0.6,c:'--s3',n:'B'},{m:[0.4,-1.1],s:0.6,c:'--s4',n:'C'}];
+var D5={pts:[],run:false};
+function score(x,y,sig2,set){/* 등가중 가우시안 혼합의 ∇log p, 각 성분 분산 = s²+σ² */
+  var ws=[],gx=[],gy=[],mx=-1e9;set.forEach(function(k){var c=CL[k],v=c.s*c.s+sig2,dx=x-c.m[0],dy=y-c.m[1],lw=-(dx*dx+dy*dy)/(2*v)-Math.log(v);ws.push(lw);gx.push(-dx/v);gy.push(-dy/v);if(lw>mx)mx=lw;});
+  var Z=0,sx=0,sy=0;ws.forEach(function(lw,i){var w=Math.exp(lw-mx);Z+=w;sx+=w*gx[i];sy+=w*gy[i];});return [sx/Z,sy/Z];}
+function runD5(){var w=+$('#d5w').value,r=rng(5+Math.floor(Math.random()*1e6)),M=400,sigs=[];for(var k=0;k<30;k++)sigs.push(3*Math.pow(0.02/3,k/29));
+  D5.pts=[];for(var i=0;i<M;i++)D5.pts.push([gauss(r)*3,gauss(r)*3]);D5.lv=0;D5.run=true;
+  (function lv(){if(!D5.run)return;var s2=sigs[D5.lv]*sigs[D5.lv],eps=0.08*s2;
+    for(var it=0;it<12;it++)D5.pts.forEach(function(p){var u=score(p[0],p[1],s2,[0,1,2]),c=score(p[0],p[1],s2,[0]);
+      var gx=u[0]+w*(c[0]-u[0]),gy=u[1]+w*(c[1]-u[1]);p[0]+=eps*gx+Math.sqrt(2*eps)*gauss(r);p[1]+=eps*gy+Math.sqrt(2*eps)*gauss(r);});
+    D5.lv++;drawD5();if(D5.lv<sigs.length)setTimeout(lv,40);else D5.run=false;})();}
+function drawD5(){var S=setup($('#d5')),g=S.g,W=S.w,H=S.h,sc=Math.min(W,H)/6.2,ox=W/2,oy=H/2;
+  function P(x,y){return [ox+x*sc,oy-y*sc];}
+  CL.forEach(function(c){var p=P(c.m[0],c.m[1]);g.strokeStyle=css(c.c);g.lineWidth=1.5;g.setLineDash([4,3]);
+    for(var k=1;k<=2;k++){g.beginPath();g.arc(p[0],p[1],c.s*sc*k,0,7);g.stroke();}g.setLineDash([]);
+    g.fillStyle=css(c.c);g.font='bold 14px system-ui';g.fillText(c.n,p[0]+c.s*sc*2+4,p[1]-4);g.font='12px system-ui';});
+  var inA=0,mx=0,my=0;D5.pts.forEach(function(p){var best=0,bd=1e9;CL.forEach(function(c,k){var d=Math.hypot(p[0]-c.m[0],p[1]-c.m[1]);if(d<bd){bd=d;best=k;}});
+    if(best===0){inA++;mx+=p[0];my+=p[1];}var q=P(p[0],p[1]);g.fillStyle=css(CL[best].c);g.globalAlpha=0.75;g.beginPath();g.arc(q[0],q[1],2.2,0,7);g.fill();g.globalAlpha=1;});
+  var sd=0;if(inA){mx/=inA;my/=inA;D5.pts.forEach(function(p){if(Math.hypot(p[0]-CL[0].m[0],p[1]-CL[0].m[1])<Math.hypot(p[0]-CL[1].m[0],p[1]-CL[1].m[1])&&Math.hypot(p[0]-CL[0].m[0],p[1]-CL[0].m[1])<Math.hypot(p[0]-CL[2].m[0],p[1]-CL[2].m[1]))sd+=(p[0]-mx)*(p[0]-mx)+(p[1]-my)*(p[1]-my);});sd=Math.sqrt(sd/inA/2);}
+  var n=D5.pts.length||1;
+  $('#d5out').innerHTML='<span>A로 간 점<b>'+(D5.pts.length?(inA/n*100).toFixed(0)+'%':'—')+'</b></span><span>A 무리의 중심 (원래 −1.20, 0.40)<b>'+(inA?mx.toFixed(2)+', '+my.toFixed(2):'—')+'</b></span>';
+  $('#d5wv').textContent=(+$('#d5w').value).toFixed(1);}
+$('#d5go').addEventListener('click',function(){D5.run=false;setTimeout(runD5,50);});
+$('#d5w').addEventListener('input',function(){$('#d5wv').textContent=(+this.value).toFixed(1);});
+$('#d5w').addEventListener('change',function(){D5.run=false;setTimeout(runD5,50);});
+
+/* ══════ 데모 6: 순차 호출 수 ══════ */
+var GRIDS=[16,32,64,128],STEPS=[1,4,10,25,50,100,250,1000];
+function drawD6(){var gside=GRIDS[+$('#d6g').value],st=STEPS[+$('#d6s').value],ar=gside*gside,df=st;
+  $('#d6gv').textContent=gside+'×'+gside;$('#d6sv').textContent=st+'단계';
+  var S=setup($('#d6')),g=S.g,W=S.w,L=110,R=W-70,mx=Math.log10(20000);
+  function bw(v){return (R-L)*Math.log10(Math.max(v,1))/mx;}
+  [[ '쌓기',ar,'--s2',20],['다듬기',df,'--s1',72]].forEach(function(b){g.fillStyle=css('--text-secondary');g.fillText(b[0],10,b[3]+20);
+    g.fillStyle=css(b[2]);g.fillRect(L,b[3],Math.max(2,bw(b[1])),30);g.fillStyle=css('--text-primary');g.fillText(b[1].toLocaleString()+'번',L+Math.max(2,bw(b[1]))+6,b[3]+20);});
+  [1,10,100,1000,10000].forEach(function(v){var x=L+bw(v);g.strokeStyle=css('--grid');g.beginPath();g.moveTo(x,10);g.lineTo(x,112);g.stroke();g.fillStyle=css('--muted');g.fillText(String(v),x-6,130);});
+  $('#d6out').innerHTML='<span>쌓기 순차 호출<b>'+ar.toLocaleString()+'</b></span><span>다듬기 순차 호출<b>'+df+'</b></span><span>비율<b>'+(ar/df>=1?(ar/df).toFixed(0)+'배':'1/'+(df/ar).toFixed(0))+'</b></span><span>참고: DALL·E<b>1024 × 후보 512장</b></span><span>참고: SD v1<b>50단계 × CFG 2</b></span>';}
+['#d6g','#d6s'].forEach(function(s){$(s).addEventListener('input',drawD6);});
+
+/* ══════ 퀴즈 ══════ */
+var QZ=[
+ {q:'첫 DALL·E가 그림을 dVAE로 “정수 토큰”으로 바꾼 가장 직접적인 이유는?',o:['저장 공간을 줄이려고','다음 칸 예측을 8192개 중 고르는 분류 문제로 만들어 언어 모델 방식 그대로 학습하려고','노이즈를 섞기 쉽게 하려고'],a:1,
+  e:'자기회귀 트랜스포머는 다음 토큰의 범주형 분포(소프트맥스)를 예측합니다. 반대로 확산은 가우시안 노이즈를 더하고 빼야 해서 연속 잠재값을 씁니다(2절).'},
+ {q:'데모 1에서 위쪽에 넣은 실수가 아래로 번지는 근본 원인은?',o:['코드북이 작아서','각 칸이 앞서 놓인 칸을 조건으로 받고, 이미 놓인 칸을 다시 고치는 단계가 없어서','온도가 높아서'],a:1,
+  e:'p(x_i | x_<i)는 앞 칸을 사실로 받아들입니다. 생성 과정에 앞 칸을 수정하는 동작이 없으므로 실수는 그대로 남고 뒤에 영향을 줍니다.'},
+ {q:'확산의 역과정이 “큰 윤곽 → 세부” 순서로 진행되는 이유는?',o:['U-Net이 다운샘플링을 하기 때문','자연 이미지는 저주파에 에너지가 몰려 있고 가우시안 노이즈는 모든 주파수에 고르게 퍼져, 노이즈가 많을 때는 저주파만 보이기 때문','학습할 때 그렇게 순서를 정해 주기 때문'],a:1,
+  e:'데모 2의 스펙트럼에서 보듯, 노이즈 수준이 높을수록 신호가 노이즈 위로 올라와 있는 주파수가 낮은 쪽으로 좁아집니다. 순서는 데이터와 노이즈의 성질에서 저절로 나옵니다.'},
+ {q:'데모 3에서 얼룩을 초반에 넣으면 사라지고 후반에 넣으면 남는 이유로 가장 알맞은 것은?',o:['초반에는 남은 노이즈가 많아 다음 단계들에서 노이즈와 함께 크게 덜어지고, 후반에는 덜어 낼 노이즈 자체가 거의 없기 때문','후반에는 모델이 꺼지기 때문','초반에는 그림이 작기 때문'],a:0,
+  e:'DDIM 한 걸음에서 모델이 설명하지 못하는 성분은 ε̂로 취급되어 √(1−ᾱ_t′)/√(1−ᾱ_t)배로 줄어듭니다. 초반부터 끝까지 곱하면 거의 0이고, 후반에서 시작하면 많이 남습니다.'},
+ {q:'Stable Diffusion에서 텍스트가 그림에 들어가는 방식은?',o:['텍스트 토큰을 그림 토큰 앞에 이어 붙인 하나의 시퀀스','U-Net 안의 교차 어텐션: 그림 위치가 쿼리, CLIP 텍스트 인코더 출력이 키·값','마지막 층에서 텍스트 벡터를 더함'],a:1,
+  e:'다듬기는 매 단계 그림 전체를 한꺼번에 처리하므로 “앞”이 없습니다. 그래서 텍스트를 별도 경로(교차 어텐션)로 넣습니다. 첫 번째 보기는 DALL·E 방식입니다.'},
+ {q:'다음 중 맞는 설명은?',o:['DALL·E는 모든 버전이 자기회귀 모델이다','트랜스포머를 쓰면 자기회귀, U-Net을 쓰면 확산이다','신경망 구조와 생성 방식은 별개의 축이다 — DALL·E 2·3은 확산이고, SD3은 트랜스포머로 확산을 하며, VAR은 거친 것부터 쌓는 자기회귀다'],a:2,
+  e:'“쌓기 vs 다듬기”는 생성 과정을 어떻게 쪼개느냐의 차이이지, 어떤 블록으로 신경망을 짜느냐의 차이가 아닙니다(10절).'}
+];
+(function(){
+  var box=$('#quiz'),score=0,done=0;
+  QZ.forEach(function(it,qi){
+    var d=document.createElement('div');d.className='q';
+    d.innerHTML='<h4>Q'+(qi+1)+'. '+it.q+'</h4>'+it.o.map(function(o,j){return '<label class="opt"><input type="radio" name="q'+qi+'" value="'+j+'">'+o+'</label>';}).join('')+'<div class="expl"></div>';
+    box.appendChild(d);
+    d.querySelectorAll('input').forEach(function(inp){inp.addEventListener('change',function(){
+      if(d.dataset.done)return;d.dataset.done=1;done++;
+      var j=+inp.value,ok=j===it.a;if(ok)score++;
+      d.querySelectorAll('.opt').forEach(function(l,x){if(x===it.a)l.classList.add('correct');else if(x===j)l.classList.add('wrong');});
+      var ex=d.querySelector('.expl');ex.textContent=(ok?'정답! ':'오답. ')+it.e;ex.classList.add('show');if(!ok)ex.classList.add('bad');
+      $('#quizScore').textContent=done+'문제 중 '+score+'개 정답'+(done===QZ.length?' — 끝!':'');
+    });});
+  });
+})();
+
+/* ══════ 테마·초기화 ══════ */
+function drawAll(){drawD1();drawD2();drawD3();drawD4();drawD5();drawD6();}
+var tbtn=$('#themeBtn');
+if(window.matchMedia&&window.matchMedia('(prefers-color-scheme: dark)').matches)document.documentElement.setAttribute('data-theme','dark');
+function syncBtn(){tbtn.textContent=document.documentElement.getAttribute('data-theme')==='dark'?'◑ 라이트':'◐ 다크';}
+tbtn.addEventListener('click',function(){var d=document.documentElement.getAttribute('data-theme')==='dark';
+  document.documentElement.setAttribute('data-theme',d?'light':'dark');cssCache={};syncBtn();drawAll();});
+initD1();initD3(11);syncBtn();drawAll();runD5();
+var rz,lastW=document.documentElement.clientWidth;
+window.addEventListener('resize',function(){clearTimeout(rz);rz=setTimeout(function(){
+  var w=document.documentElement.clientWidth;if(w===lastW)return;lastW=w;drawAll();},120);});
+function renderMath(){if(!window.renderMathInElement)return;if(!document.querySelector('.katex'))renderMathInElement(document.body,{delimiters:[{left:'\\[',right:'\\]',display:true},{left:'\\(',right:'\\)',display:false}]});}
+document.addEventListener('DOMContentLoaded',renderMath);
+window.addEventListener('load',renderMath);
+</script>
+</body>
+</html>
